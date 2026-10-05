@@ -44,6 +44,7 @@
 
   // ---- canvases ----
   const stageCtx = V.setup($('stage'), V.STAGE_W, V.STAGE_H), energyCtx = V.setup($('energy'), V.ENERGY_W, V.ENERGY_H);
+  const histCtx = V.setup($('hist'), 300, 140), effCtx = V.setup($('eff'), 300, 96);
   V.drawLegendAtom(V.setup($('lgAtom'), 60, 28), 60, 28);
   V.drawLegendElectron(V.setup($('lgElectron'), 60, 28), 60, 28);
   V.drawLegendPhotons(V.setup($('lgPhoton'), 60, 28), 60, 28);
@@ -125,6 +126,7 @@
   $('optLines').onchange = e => { st().lines = e.target.checked; };
   $('sStop').onclick = () => { model().specRun = !model().specRun; syncUI(); };
   $('sReset').onclick = () => model().spectrum.clear();
+  $('statsReset').onclick = () => model().resetStats();
 
   // ---- configurable atom: drag level lines in the energy panel ----
   let dragLevel = -1;
@@ -231,6 +233,7 @@
     const ms = Math.min(50, now - last); last = now;
     if (!st().paused) advance(ms * DT / 40 * (st().slow ? 0.2 : 1));
     V.drawStage(stageCtx, model(), st()); V.drawEnergy(energyCtx, model(), st());
+    if ($('analysis').open) { V.drawHistogram(histCtx, model(), 300, 140); V.drawEfficiency(effCtx, model(), 300, 96); }
     requestAnimationFrame(frame);
   }
 

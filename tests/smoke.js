@@ -72,6 +72,15 @@ const server = http.createServer((req, res) => {
     await page.waitForFunction(() => document.getElementById('tip').style.display === 'block');
     assert.ok((await page.textContent('#tip')).startsWith('Balmer-α (3→2)'), 'tooltip names the Balmer-alpha line');
 
+    // analysis panel: open it on a busy lamp and check the collision statistics fill in
+    await page.goto(base + '?seed=2&v=30&pct=100');
+    await page.waitForFunction(() => window.lampSim);
+    await page.click('#analysis > summary');
+    await page.waitForFunction(() => lampSim.models.multiple.stats.collisions > 50, null, { timeout: 15000 });
+    assert.ok(await page.evaluate(() => lampSim.models.multiple.efficiency().light > 0));
+    await page.click('#statsReset');
+    assert.strictEqual(await page.evaluate(() => lampSim.models.multiple.stats.collisions), 0);
+
     assert.deepStrictEqual(errors, [], 'no console/page errors');
     console.log('smoke test passed');
   } finally {

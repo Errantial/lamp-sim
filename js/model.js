@@ -13,7 +13,7 @@
     KE_PER_V2: 1e12 * 9.109e-31 / 2 * 6.2414180501810012e18,         // eV per (px/unit)^2  (= 2.843)
     CURRENT_FACTOR: 0.001, PHOTON_SPEED: 0.5, HC: 1239.84, MAX_ATOMS: 30,
     MAX_CURRENT: { single: 25, multiple: 150 },
-    MIN_V: -30, MAX_V: 30, DEFAULT_V: 23, DEFAULT_PCT: 20,
+    MIN_V: -30, MAX_V: 30, DEFAULT_V: 23, DEFAULT_PCT: 20, HIST_BINS: 32,
     PHOTON_BOUNDS: { x0: 70, x1: 870, y0: -200, y1: 600 }          // LaserModel bounding rectangle (LasersConfig.ORIGIN 120,200 +/- 400)
   };
 
@@ -41,10 +41,21 @@
       tab: cfg.tab || 'multiple', V: C.DEFAULT_V, pct: C.DEFAULT_PCT, mode: null,
       elementKey: null, levels: [], choosers: [], configurable: false,
       atoms: [], electrons: [], photons: [], arrows: [], pulses: [], since: 0, lastHit: null, indicatorEnabled: false,
-      spectrum: new Map(), specRun: true, heat: 0, nLevels: 2
+      spectrum: new Map(), specRun: true, heat: 0, nLevels: 2, stats: null
     };
     m.mode = m.tab === 'single' ? 'single' : 'continuous';
     m.maxCurrent = C.MAX_CURRENT[m.tab];
+
+    // running statistics for the analysis panel: electron energy at collision (1 eV bins), energy delivered to electrons,
+    // and the energy carried away by photons (UV < 380 nm < visible < 750 nm < IR)
+    m.resetStats = function () { m.stats = { bins: new Array(C.HIST_BINS).fill(0), collisions: 0, excitations: 0, supplied: 0, photons: 0, photonE: { uv: 0, visible: 0, ir: 0 } }; };
+    m.resetStats();
+    m.efficiency = function () {                                      // fractions of the energy given to electrons that left as light
+      let supplied = m.stats.supplied;
+      for (const e of m.electrons) supplied += keOf(e.vx) + (e.lost || 0);   // include electrons still in flight
+      const P = m.stats.photonE, total = P.uv + P.visible + P.ir, f = x => supplied > 0 ? Math.min(1, x / supplied) : 0;
+      return { supplied, uv: f(P.uv), visible: f(P.visible), ir: f(P.ir), light: f(total) };
+    };
 
     const accel = () => m.V * C.ACC_K;
     // fraction of the way from ground to the highest level (drives atom ring size and grey level)
@@ -60,7 +71,7 @@
       if (m.configurable) { m.nLevels = m.nLevels || 2; m.levels = DL.configurableLevels(m.nLevels); m.choosers = []; }
       else { m.levels = el.levels.slice(); m.choosers = buildChoosers(el.transitions, m.levels.length); }
       m.resetAtomsToGround();
-      m.electrons = []; m.photons = []; m.arrows = []; m.pulses = []; m.spectrum.clear(); m.lastHit = null;
+      m.electrons = []; m.photons = []; m.arrows = []; m.pulses = []; m.spectrum.clear(); m.lastHit = null; m.resetStats();
     };
     m.setNumLevels = function (n) {                                   // configurable atom only (2..6 levels)
       n = Math.max(2, Math.min(6, n));
@@ -109,6 +120,7 @@
       const dx = Math.cos(th), dy = Math.sin(th), w = wavelength(hi, lo);
       m.photons.push({ x: a.x + dx * (C.R_ATOM + 10), y: a.y + dy * (C.R_ATOM + 10), vx: dx * C.PHOTON_SPEED, vy: dy * C.PHOTON_SPEED, w, t: 0 });
       m.arrows.push({ hi, lo, w, life: 250, kind: 'emit' });
+      m.stats.photons++; m.stats.photonE[w < 380 ? 'uv' : w > 750 ? 'ir' : 'visible'] += m.levels[hi] - m.levels[lo];
       if (m.specRun) { const k = w.toFixed(2); m.spectrum.set(k, (m.spectrum.get(k) || 0) + 1); }
       if (m.onEvent) m.onEvent({ type: 'emit', w });
     }
@@ -137,9 +149,10 @@
       while (n < L.length && !(L[n] - L[c] > ke)) n++;
       n--;
       m.lastHit = { ke, t: 0 };
+      m.stats.collisions++; m.stats.bins[Math.min(C.HIST_BINS - 1, Math.floor(ke))]++;
       if (n > c) {
         const to = c + 1 + Math.floor(rnd() * (n - c)), gap = L[to] - L[c];
-        a.s = to; a.t = 0;
+        a.s = to; a.t = 0; m.stats.excitations++; e.lost = (e.lost || 0) + gap;
         m.arrows.push({ hi: to, lo: c, w: 0, life: 200, kind: 'absorb' });
         if (m.onEvent) m.onEvent({ type: 'absorb', n: to + 1 });
         e.vx = Math.sign(e.vx || 1) * speedOf(ke - gap);
@@ -179,7 +192,7 @@
       for (let i = m.electrons.length - 1; i >= 0; i--) {
         const e = m.electrons[i], px = e.x, vp = Math.abs(e.vx);
         e.x += e.vx * dt + 0.5 * accel() * dt * dt; e.vx += accel() * dt;   // exact constant-acceleration step
-        if (e.x > C.ANODE_X || e.x < C.CATHODE_X) { m.electrons.splice(i, 1); continue; }   // absorbed by the far plate
+        if (e.x > C.ANODE_X || e.x < C.CATHODE_X) { m.stats.supplied += keOf(e.vx) + (e.lost || 0); m.electrons.splice(i, 1); continue; }   // absorbed by the far plate
         for (const a of A) {
           const dPrev = Math.hypot(px - a.x, e.y - a.y), dCur = Math.hypot(e.x - a.x, e.y - a.y);
           const trigger = m.atomRadius(a) + C.R_E;                    // PhET detects entry into the (state-sized) ring...
@@ -212,7 +225,7 @@
 
     m.reset = function () {
       m.V = C.DEFAULT_V; m.pct = C.DEFAULT_PCT; m.mode = m.tab === 'single' ? 'single' : 'continuous';
-      m.electrons = []; m.photons = []; m.arrows = []; m.pulses = []; m.since = 0; m.lastHit = null; m.indicatorEnabled = false; m.spectrum.clear();
+      m.electrons = []; m.photons = []; m.arrows = []; m.pulses = []; m.since = 0; m.lastHit = null; m.indicatorEnabled = false; m.spectrum.clear(); m.resetStats();
       m.atoms = []; m.nLevels = 2; m.setElement('hydrogen'); m.setAtomCount(cfg.nAtoms || C.MAX_ATOMS); recomputeHeat();
     };
 

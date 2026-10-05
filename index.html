@@ -84,6 +84,12 @@
           <select id="nLevels"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
       </div>
       <canvas id="energy" width="300" height="340" role="img" aria-label="Energy level diagram"></canvas>
+      <details id="analysis" class="analysis">
+        <summary data-i18n="analysis.title">Analysis</summary>
+        <canvas id="hist" width="300" height="140" role="img" aria-label="Histogram of electron energy at collision"></canvas>
+        <canvas id="eff" width="300" height="96" role="img" aria-label="Share of electron energy converted to light"></canvas>
+        <button id="statsReset" type="button" class="specbtn" data-i18n="analysis.reset">Reset statistics</button>
+      </details>
       <h2 data-i18n="options.title">Options</h2>
       <div class="options">
         <label><input type="checkbox" id="optSpec" checked> <span data-i18n="options.spectrometer">Spectrometer</span></label>

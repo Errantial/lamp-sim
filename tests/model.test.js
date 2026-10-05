@@ -190,4 +190,25 @@ test('every browser script parses and the i18n tables are complete', () => {
   for (const k of es) assert.ok(en.has(k), `Spanish-only string: ${k}`);
 });
 
+test('statistics: histogram counts every collision, energy accounting stays physical', () => {
+  const m = DL.createModel({ tab: 'multiple', element: 'hydrogen', nAtoms: 30, rng: mulberry32(77) });
+  m.setVoltage(30); m.setPct(100);
+  for (let t = 0; t < 24000; t += 3) m.step(3);
+  const s = m.stats, binTotal = s.bins.reduce((a, b) => a + b, 0), eff = m.efficiency();
+  assert.ok(s.collisions > 100, `collisions ${s.collisions}`);
+  assert.strictEqual(binTotal, s.collisions);
+  assert.ok(s.excitations <= s.collisions && s.excitations > 0);
+  assert.ok(eff.light > 0 && eff.light <= 1, `light fraction ${eff.light}`);
+  assert.ok(Math.abs(eff.light - (eff.uv + eff.visible + eff.ir)) < 1e-9);
+  assert.ok(eff.uv > eff.visible, 'hydrogen: most energy leaves as UV (Lyman) rather than visible');
+  let counted = 0; for (const n of m.spectrum.values()) counted += n; assert.strictEqual(counted, s.photons);
+  m.resetStats(); assert.strictEqual(m.stats.collisions, 0); assert.strictEqual(m.efficiency().light, 0);
+});
+
+test('no collision below the first gap means an empty histogram and zero light', () => {
+  const m = DL.createModel({ tab: 'multiple', element: 'hydrogen', nAtoms: 30, rng: mulberry32(5) });
+  m.setVoltage(8); m.setPct(100); for (let t = 0; t < 9000; t += 3) m.step(3);
+  assert.strictEqual(m.stats.excitations, 0); assert.strictEqual(m.stats.photons, 0); assert.ok(m.stats.bins.slice(11).every(n => n === 0), 'no collision energy above the field gain');
+});
+
 console.log(`\n${passed} tests passed`);

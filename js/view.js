@@ -251,6 +251,15 @@
       c.stroke(); const d = yb > ya ? 1 : -1;
       c.beginPath(); c.moveTo(x, yb); c.lineTo(x - 5, yb - 9 * d); c.lineTo(x + 5, yb - 9 * d); c.fill(); c.globalAlpha = 1;
     }
+    if (st.lines && !single) {                                           // catalogue of every possible transition, coloured by wavelength
+      const lines = V.possibleLines(m), step = Math.min(9, 150 / Math.max(1, lines.length)); let k = 0;
+      for (const ln of lines.slice().sort((p, q) => p.to - q.to || p.from - q.from)) {
+        const x = x0 + 30 + k++ * step, y1 = ys[ln.from], y2 = ys[ln.to];
+        c.strokeStyle = c.fillStyle = V.rgb(ln.w); c.globalAlpha = .75; c.lineWidth = 1.4;
+        c.beginPath(); c.moveTo(x, y1); c.lineTo(x, y2); c.stroke();
+        c.beginPath(); c.moveTo(x, y2); c.lineTo(x - 3, y2 - 6); c.lineTo(x + 3, y2 - 6); c.fill(); c.globalAlpha = 1;
+      }
+    }
     for (const a of m.atoms) {                                           // atoms rest on their level (30% overlap)
       const i = cnt[a.s]++;
       sphere(c, x0 + 9 + i * 8, ys[a.s] - 6, 6, '#a4a4a4', '#2a2a2a');
@@ -302,6 +311,45 @@
       c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1.5; c.stroke();
       c.fillStyle = '#e8edf3'; c.font = 'bold 14px Arial'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(DL.t('element.' + k), 14, y);
     });
+  };
+
+  // ---------------- analysis panel ----------------
+  V.drawHistogram = function (c, m, w, h) {
+    const bins = m.stats.bins, n = bins.length, L = 34, R = 8, T = 22, B = 24, pw = w - L - R, ph = h - T - B, max = Math.max(1, ...bins);
+    c.clearRect(0, 0, w, h); c.fillStyle = '#fff'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#123'; c.font = 'bold 11px Arial'; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+    c.fillText(DL.t('analysis.hist'), 6, 13);
+    // excitation thresholds from the ground state (dashed): why the histogram clusters
+    c.strokeStyle = 'rgba(120,120,200,.55)'; c.setLineDash([3, 3]); c.lineWidth = 1;
+    for (let i = 1; i < m.levels.length; i++) {
+      const gap = m.levels[i] - m.levels[0]; if (gap >= n) continue;
+      const x = L + gap / n * pw; c.beginPath(); c.moveTo(x, T); c.lineTo(x, T + ph); c.stroke();
+    }
+    c.setLineDash([]);
+    const bw = pw / n;
+    bins.forEach((v_, i) => { const bh = v_ / max * ph; c.fillStyle = '#3b6fb6'; c.fillRect(L + i * bw + 1, T + ph - bh, bw - 2, bh); });
+    c.strokeStyle = '#000'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(L, T); c.lineTo(L, T + ph); c.lineTo(L + pw, T + ph); c.stroke();
+    c.fillStyle = '#123'; c.font = '10px Arial'; c.textAlign = 'center';
+    for (let e = 0; e <= n; e += 8) c.fillText(e, L + e / n * pw, T + ph + 12);
+    c.textAlign = 'right'; c.fillText(max, L - 4, T + 8); c.fillText(0, L - 4, T + ph);
+    c.textAlign = 'right'; c.fillText(`${m.stats.collisions} ${DL.t('analysis.count')}`, w - R, 13);
+  };
+
+  V.drawEfficiency = function (c, m, w, h) {
+    const eff = m.efficiency(), rows = [['kind.uv', eff.uv, '#7b5ad8'], ['kind.visible', eff.visible, '#2e9d57'], ['kind.ir', eff.ir, '#b03030']];
+    c.clearRect(0, 0, w, h); c.fillStyle = '#fff'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#123'; c.font = 'bold 11px Arial'; c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.fillText(DL.t('analysis.eff'), 6, 11);
+    const L = 84, pw = w - L - 46;
+    rows.forEach(([key, f, col], i) => {
+      const y = 30 + i * 18;
+      c.fillStyle = '#123'; c.font = '11px Arial'; c.textAlign = 'left'; c.fillText(DL.t(key), 6, y);
+      c.fillStyle = '#e6e9ee'; c.fillRect(L, y - 6, pw, 12);
+      c.fillStyle = col; c.fillRect(L, y - 6, Math.max(f > 0 ? 1 : 0, f * pw), 12);
+      c.fillStyle = '#123'; c.textAlign = 'right'; c.fillText((f * 100).toFixed(f < 0.1 ? 1 : 0) + '%', w - 4, y);
+    });
+    c.fillStyle = '#123'; c.font = 'bold 11px Arial'; c.textAlign = 'left';
+    c.fillText(`${(eff.light * 100).toFixed(1)}% ${DL.t('analysis.light')}`, 6, h - 8);
   };
 
   V.drawLegendAtom = (c, w, h) => { c.clearRect(0, 0, w, h); V.drawAtomSprite(c, 0, 0, w / 2, h / 2, 0.8); };

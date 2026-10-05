@@ -234,4 +234,14 @@ test('every challenge target has a correct answer key (unreachable just below, r
   }
 });
 
+test('vercel.json serves the sim at /lamp-sim/ with security and caching headers', () => {
+  const cfg = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'vercel.json'), 'utf8'));
+  assert.strictEqual(cfg.outputDirectory, 'dist'); assert.strictEqual(cfg.trailingSlash, true);
+  assert.deepStrictEqual(cfg.redirects.map(r => [r.source, r.destination]), [['/', '/lamp-sim/']]);
+  const all = Object.fromEntries(cfg.headers.find(h => h.source === '/lamp-sim/(.*)').headers.map(h => [h.key, h.value]));
+  assert.ok(/default-src 'self'/.test(all['Content-Security-Policy']) && !/unsafe-inline|unsafe-eval/.test(all['Content-Security-Policy']));
+  assert.strictEqual(all['X-Content-Type-Options'], 'nosniff');
+  assert.ok(cfg.headers.some(h => /js\|css/.test(h.source) && h.headers.some(x => /immutable/.test(x.value))));
+});
+
 console.log(`\n${passed} tests passed`);

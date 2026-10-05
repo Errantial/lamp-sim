@@ -10,12 +10,16 @@ const { chromium } = require('playwright');
 const root = path.join(__dirname, '..', 'dist');
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml' };
 
+// apply exactly the headers vercel.json sets for /lamp-sim/*, so a CSP violation shows up as a console error here
+const vercel = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
+const pageHeaders = Object.fromEntries(vercel.headers.find(h => h.source === '/lamp-sim/(.*)').headers.map(h => [h.key, h.value]));
+
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]);
   if (p.endsWith('/')) p += 'index.html';
   const f = path.join(root, p);
   if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); return res.end('not found'); }
-  res.writeHead(200, { 'Content-Type': types[path.extname(f)] || 'application/octet-stream' });
+  res.writeHead(200, Object.assign({ 'Content-Type': types[path.extname(f)] || 'application/octet-stream' }, pageHeaders));
   fs.createReadStream(f).pipe(res);
 });
 
@@ -31,6 +35,7 @@ const server = http.createServer((req, res) => {
     await page.goto(base + '?seed=1');
     await page.waitForFunction(() => window.lampSim);
     assert.strictEqual(await page.title(), 'Discharge Lamps');
+    assert.ok(/src="js\/main\.js\?v=[0-9a-f]{8}"/.test(await page.content()), 'built assets carry a content hash');
 
     // every atom type runs on both tabs
     for (const tab of ['tabSingle', 'tabMultiple']) {

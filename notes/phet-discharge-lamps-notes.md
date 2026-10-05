@@ -80,9 +80,15 @@ Test results (headless, one stationary atom at the tube centre, as PhET's One At
 - **"Show actual" button:** opens a window with a photograph of real lamps (`actual-lamps.jpg` in the jar). Not reproduced (image licence and no clear UI home).
 - **Defaults:** One Atom tab: Single mode, squiggles on. Multiple tab: Continuous 20%, squiggles off. Both start at 23 V, spectrometer hidden (ours defaults to shown because the original spec wanted it visible).
 
-## Parity status (feature/phet-parity)
+## More findings (collisions and atom graphics)
+- **Atom-atom and wall collisions are perfectly elastic** (restitution 1, all atoms mass 1000): equal-mass spheres exchange their normal velocity components, walls reflect. Walls are the tube bounds (x 100..590, y 160..390) measured with the atom's *current* radius. Our model matches this (kinetic energy is conserved in `tests/model.test.js`).
+- **Atom radius depends on the level**: `r = 15 + 2 + 6 * (E - E0)/(Emax - E0)` px (17 px at ground, 23 px at the top level of hydrogen). It is used for atom-atom/wall contact and for the electron trigger ring (`r + 2`); the electron's *energy* is still measured to the base sphere (`15 + 2`). Ports: `atomRadius()` in `js/model.js`.
+- **Drawing**: constant dark-grey sphere (r = 15) with the level number, over a ring of radius `r` coloured `grey = floor(240 * fraction)` (black at ground), 0.5 px black outline. Heater coils: ~25 tight loops, colour = `(heat, 0, 0)` so they are black until heated. The energy panel shows level badges in the same style; transition arrows and the "Ground state" label appear on the One Atom tab only.
+- **Photons removed** when they leave the model bounds (LaserModel bounding rectangle); ours removes them at the stage edge.
+
+## Parity status (feature/phet-parity, updated)
 Done: model refactor (`js/model.js`, 9 tests), atom types (H, Hg, Na, Ne, configurable with draggable levels), One Atom + Multiple Atoms tabs, PhET-style layout/theme (title bar, menus, tabs, legend, atom type panel, vertical energy panel with collision indicator, olive spectrometer, battery, copper plates, heater coils, gold wires), editable voltage and % fields, Options menu (simulation speed, language), About dialog, English + Spanish, ARIA live announcements, keyboard-operable menus/controls, responsive stacking, spectrometer hover tooltip, `/lamp-sim` Vercel hosting.
-Not done / deliberately different: PhET logo and "Show actual" photo; our title/About credit PhET as the source; atom-atom and wall collisions are our own elastic model; ground state is not draggable in the configurable atom; pixel-exact visual diff against PhET (only side-by-side screenshots were compared by eye); full screen-reader audit; more languages.
+Not done / deliberately different: PhET logo and "Show actual" photo; our title/About credit PhET as the source; atom-atom/wall collisions were verified against PhET's code (elastic, state-sized radius) and ported; ground state is not draggable in the configurable atom; pixel-exact visual diff against PhET (only side-by-side screenshots were compared by eye); full screen-reader audit; more languages.
 
 # Ideas: optimizations, improvements, additions
 

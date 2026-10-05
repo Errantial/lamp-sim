@@ -6,7 +6,7 @@
   const C = DL.C, V = DL.view = {};
 
   V.STAGE_W = 710; V.STAGE_H = 640; V.ENERGY_W = 300; V.ENERGY_H = 340;
-  const SPEC = V.SPEC = { x: 25, y: 410, w: 660, h: 215, dx: 50, dy: 420, dw: 610, dh: 100, x300: 130, x800: 570 };
+  const SPEC = V.SPEC = { x: 25, y: 404, w: 660, h: 178, dx: 50, dy: 412, dw: 610, dh: 112, x300: 130, x800: 570 };
   const specX = w => SPEC.x300 + (w - 300) / 500 * (SPEC.x800 - SPEC.x300);
   V.specX = specX;
 
@@ -36,27 +36,21 @@
     g.addColorStop(0, light); g.addColorStop(1, dark);
     c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 6.283); c.fill();
   }
-  const grayAt = f => Math.round(60 + 150 * Math.max(0, Math.min(1, f)));   // grey ramp by energy (PhET GrayScaleStrategy)
+  // PhET AtomGraphic: constant dark-grey sphere (r=15) with a number, over a ring whose radius is 17 + 6*f and whose grey is floor(240*f)
+  const ringGray = f => Math.min(239, Math.max(0, Math.floor(240 * f)));
+  function levelFraction(m, s) { return m.levelFraction ? m.levelFraction(s) : 0; }
 
-  function levelFraction(m, s) {
-    const L = m.levels, lo = L[0], hi = L[L.length - 1];
-    return hi > lo ? (L[s] - lo) / (hi - lo) : 0;
-  }
-
-  V.drawAtom = function (c, m, a, x, y, r) {
-    const f = levelFraction(m, a.s), g = grayAt(f * 0.85);
-    if (a.s > 0) {                                                      // excited: pale halo ring that grows with the level
-      const R = r + 5 + 2.5 * a.s;
-      const hg = c.createRadialGradient(x, y, r, x, y, R);
-      hg.addColorStop(0, 'rgba(235,235,235,.95)'); hg.addColorStop(1, 'rgba(200,200,200,.75)');
-      c.fillStyle = hg; c.strokeStyle = '#8a8a8a'; c.lineWidth = 1.2;
-      c.beginPath(); c.arc(x, y, R, 0, 6.283); c.fill(); c.stroke();
-    }
-    sphere(c, x, y, r, `rgb(${Math.min(255, g + 70)},${Math.min(255, g + 70)},${Math.min(255, g + 70)})`, `rgb(${g * 0.55 | 0},${g * 0.55 | 0},${g * 0.55 | 0})`);
-    c.strokeStyle = '#111'; c.lineWidth = 1.6; c.beginPath(); c.arc(x, y, r, 0, 6.283); c.stroke();
-    c.fillStyle = g > 130 ? '#000' : '#fff'; c.font = `bold ${Math.round(r * 0.85)}px Arial, sans-serif`;
-    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(a.s + 1, x, y + 1);
+  // x, y: centre; k: scale (1 on the stage). s: level index (displayed as s+1)
+  V.drawAtomSprite = function (c, f, s, x, y, k) {
+    const ringR = (17 + 6 * f) * k, r = 15 * k, g = ringGray(f);
+    c.fillStyle = `rgb(${g},${g},${g})`; c.strokeStyle = '#000'; c.lineWidth = 0.6;
+    c.beginPath(); c.arc(x, y, ringR, 0, 6.283); c.fill(); c.stroke();
+    sphere(c, x, y, r, '#a4a4a4', '#2a2a2a');
+    c.strokeStyle = '#111'; c.lineWidth = 1; c.beginPath(); c.arc(x, y, r, 0, 6.283); c.stroke();
+    c.fillStyle = '#fff'; c.font = `bold ${Math.round(r * 0.95)}px Arial, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(s + 1, x, y + 1);
   };
+  V.drawAtom = (c, m, a, x, y) => V.drawAtomSprite(c, levelFraction(m, a.s), a.s, x, y, 1);
 
   V.drawElectron = function (c, x, y, r) { sphere(c, x, y, r, '#8f94ea', '#1c2190'); };
 
@@ -68,9 +62,9 @@
       for (let s = 0; s <= 26; s++) { const yy = 5 * Math.sin(s * 0.55 - p.t * 0.06); s ? c.lineTo(-s * 1.1, yy) : c.moveTo(0, yy); }
       c.stroke();
     } else {                                                            // sparkle: soft halo + star
-      const hg = c.createRadialGradient(0, 0, 0, 0, 0, 11);
-      hg.addColorStop(0, col); hg.addColorStop(1, 'rgba(255,255,255,0)');
-      c.globalAlpha = 0.55; c.fillStyle = hg; c.beginPath(); c.arc(0, 0, 11, 0, 6.283); c.fill(); c.globalAlpha = 1;
+      const hg = c.createRadialGradient(0, 0, 0, 0, 0, 15);
+      hg.addColorStop(0, col); hg.addColorStop(.45, col); hg.addColorStop(1, 'rgba(255,255,255,0)');
+      c.globalAlpha = 0.5; c.fillStyle = hg; c.beginPath(); c.arc(0, 0, 15, 0, 6.283); c.fill(); c.globalAlpha = 1;
       c.fillStyle = uv ? '#4b2bb0' : col; c.beginPath();
       for (let k = 0; k < 8; k++) { const rr = k % 2 ? 1.8 : 6, th = k * Math.PI / 4; c.lineTo(rr * Math.cos(th), rr * Math.sin(th)); }
       c.closePath(); c.fill();
@@ -86,22 +80,21 @@
       c.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
     };
     c.lineCap = 'butt'; c.lineJoin = 'round';
-    for (const [w, col] of [[16, '#5e4a18'], [13, '#a58b3f'], [6, '#d3bd72']]) { c.lineWidth = w; c.strokeStyle = col; path(); c.stroke(); }
+    for (const [w, col] of [[20, '#4f3d12'], [17, '#8f7733'], [7, '#cdb869']]) { c.lineWidth = w; c.strokeStyle = col; path(); c.stroke(); }
   }
 
-  function heater(c, plateX, dir, heat) {                                // coil beside the plate, glows red with heat (0..255)
-    const cx = plateX + dir * 62, f = heat / 255;
+  function heater(c, plateX, dir, heat) {                                // tight coil beside the plate; PhET sets the red channel to the heat (0..255)
+    const cx = plateX + dir * 36, f = heat / 255, red = Math.round(Math.min(255, heat));
     c.save();
-    c.strokeStyle = `rgb(${Math.round(107 + 148 * f)},${Math.round(16 + 20 * f)},${Math.round(16 + 20 * f)})`;
-    c.lineWidth = 2.2;
-    if (f > 0) { c.shadowColor = 'rgba(255,40,20,.9)'; c.shadowBlur = 16 * f; }
-    for (let i = 0; i < 10; i++) {
-      const y = 195 + i * 18.5; c.beginPath(); c.ellipse(cx, y, 22, 9, 0, 0, 6.283); c.stroke();
-    }
+    c.strokeStyle = `rgb(${Math.max(40, red)},${red > 40 ? 0 : 8},${red > 40 ? 0 : 8})`;
+    c.lineWidth = 1.8;
+    if (f > 0.02) { c.shadowColor = 'rgba(255,40,20,.95)'; c.shadowBlur = 18 * f; }
+    for (let i = 0; i < 25; i++) { c.beginPath(); c.ellipse(cx, 192 + i * 6.9, 17, 6, 0, 0, 6.283); c.stroke(); }
     c.restore();
-    c.strokeStyle = '#111'; c.lineWidth = 1;                              // thin leads up to the panel
-    c.beginPath(); c.moveTo(cx - 14, 186); c.lineTo(cx - 14, 118); c.lineTo(dir < 0 ? 150 : 540, 118);
-    c.moveTo(cx + 10, 186); c.lineTo(cx + 10, 105); c.lineTo(dir < 0 ? 150 : 540, 105); c.stroke();
+    c.strokeStyle = '#000'; c.lineWidth = 1.6; c.lineJoin = 'round';        // leads from the coil ends up to the electron panel
+    const px = dir < 0 ? 150 : 540;
+    c.beginPath(); c.moveTo(cx - dir * 22, 366); c.lineTo(cx - dir * 22, 104); c.lineTo(px, 104);
+    c.moveTo(cx + dir * 4, 352); c.lineTo(cx + dir * 4, 134); c.lineTo(px, 134); c.stroke();
   }
 
   function battery(c, voltage) {
@@ -131,17 +124,17 @@
 
     // tube: open cylinder
     const T = C.TUBE, cy = (T.y0 + T.y1) / 2, ry = (T.y1 - T.y0) / 2 + 3, lx = 108, rx = 582, ex = 20;
-    c.fillStyle = 'rgba(235,238,240,.55)'; c.fillRect(lx, cy - ry, rx - lx, 2 * ry);
-    c.beginPath(); c.ellipse(lx, cy, ex, ry, 0, 0, 6.283); c.fillStyle = 'rgba(250,250,250,.9)'; c.fill();
+    c.fillStyle = '#fff'; c.fillRect(lx, cy - ry, rx - lx, 2 * ry);
+    c.beginPath(); c.ellipse(lx, cy, ex, ry, 0, 0, 6.283); c.fillStyle = '#fff'; c.fill();
     c.strokeStyle = '#222'; c.lineWidth = 1.4; c.stroke();
     c.beginPath(); c.moveTo(lx, cy - ry); c.lineTo(rx, cy - ry); c.moveTo(lx, cy + ry); c.lineTo(rx, cy + ry); c.stroke();
     c.beginPath(); c.ellipse(rx, cy, ex, ry, 0, 0, 6.283); c.stroke();
 
-    for (const a of m.atoms) V.drawAtom(c, m, a, a.x, a.y, 17);
+    for (const a of m.atoms) V.drawAtom(c, m, a, a.x, a.y);
     for (const px of [C.CATHODE_X, C.ANODE_X]) {                          // copper plates in front of the atoms
-      const g = c.createLinearGradient(px - 7, 0, px + 7, 0);
-      g.addColorStop(0, '#6b3f16'); g.addColorStop(.45, '#e0a96a'); g.addColorStop(1, '#6b3f16');
-      c.fillStyle = g; c.beginPath(); c.roundRect(px - 7, C.PLATE_Y - C.PLATE_HALF, 14, 2 * C.PLATE_HALF, 6); c.fill();
+      const g = c.createLinearGradient(px - 9, 0, px + 9, 0);
+      g.addColorStop(0, '#6b3f16'); g.addColorStop(.4, '#e3b07a'); g.addColorStop(1, '#6b3f16');
+      c.fillStyle = g; c.strokeStyle = '#4a2a0c'; c.lineWidth = 1; c.beginPath(); c.roundRect(px - 9, C.PLATE_Y - C.PLATE_HALF, 18, 2 * C.PLATE_HALF, 9); c.fill(); c.stroke();
     }
     for (const e of m.electrons) V.drawElectron(c, e.x, e.y, 4);
     for (const p of m.photons) V.drawPhoton(c, p, st.squig);
@@ -154,8 +147,8 @@
     const out = [];
     for (const [k, n] of m.spectrum) {
       const w = +k; let x;
-      if (w < 300) x = SPEC.x300 - 42 + Math.max(0, Math.min(1, (w - 90) / 210)) * 30;       // far UV pile
-      else if (w > 800) x = SPEC.x800 + 12 + Math.min(1, (w - 800) / 3500) * 30;           // far IR pile
+      if (w < 300) x = SPEC.x300 - 51 + Math.max(0, Math.min(1, (w - 90) / 210)) * 8;        // far UV pile
+      else if (w > 800) x = SPEC.x800 + 22 + Math.min(1, (w - 800) / 3500) * 30;           // far IR pile
       else x = specX(w);
       out.push({ x, w, n });
     }
@@ -174,11 +167,11 @@
     for (let w = 300; w <= 800; w += 10) {
       const x = specX(w), major = w % 100 === 0;
       c.beginPath(); c.moveTo(x, base + 4); c.lineTo(x, base + (major ? 9 : 6)); c.stroke();
-      if (major) c.fillText(String(w), x, base + 21);
+      if (major) c.fillText(String(w), x, base + 25);
     }
-    c.fillText(DL.t('spec.axis'), specX(550), base + 38);
-    c.textAlign = 'left'; c.fillText(DL.t('spec.farUV'), S.dx + 8, base + 21);
-    c.textAlign = 'right'; c.fillText(DL.t('spec.farIR'), S.dx + S.dw - 18, base + 21);
+    c.fillText(DL.t('spec.axis'), specX(550), base + 41);
+    c.textAlign = 'left'; c.fillText(DL.t('spec.farUV'), S.dx + 8, base + 25);
+    c.textAlign = 'right'; c.fillText(DL.t('spec.farIR'), S.dx + S.dw - 18, base + 25);
 
     const hmax = S.dh - 4;
     for (const mk of V.spectrumLayout(m)) {                               // stacked dots, one per photon (compressed if needed)
@@ -213,10 +206,10 @@
 
     const ys = V.energyY(m), cnt = new Array(m.levels.length).fill(0);
     m.levels.forEach((e, i) => {
-      c.strokeStyle = '#000'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(LINE_X0, ys[i]); c.lineTo(LINE_X1, ys[i]); c.stroke();
+      c.strokeStyle = '#000'; c.lineWidth = 2; c.beginPath(); c.moveTo(LINE_X0, ys[i]); c.lineTo(LINE_X1, ys[i]); c.stroke();
       if (m.configurable && i > 0) { c.fillStyle = '#c33'; c.fillRect(LINE_X1 - 6, ys[i] - 3, 6, 6); }       // drag handle
     });
-    for (const ar of m.arrows) {                                         // transitions (squiggle or straight arrow)
+    for (const ar of (m.tab === 'single' ? m.arrows : [])) {            // transitions are shown on the One Atom tab only
       const x = LINE_X0 + 40 + ((ar.hi * 23 + ar.lo * 9) % 160), y1 = ys[ar.hi], y2 = ys[ar.lo];
       const [ya, yb] = ar.kind === 'absorb' ? [y2, y1] : [y1, y2], col = ar.kind === 'absorb' ? '#444' : V.rgb(ar.w);
       c.globalAlpha = Math.min(1, ar.life / 120); c.strokeStyle = c.fillStyle = col; c.lineWidth = 2.2; c.beginPath();
@@ -226,12 +219,12 @@
       c.beginPath(); c.moveTo(x, yb); c.lineTo(x - 5, yb - 9 * d); c.lineTo(x + 5, yb - 9 * d); c.fill(); c.globalAlpha = 1;
     }
     for (const a of m.atoms) {                                           // atoms rest on their level (30% overlap)
-      const i = cnt[a.s]++, f = levelFraction(m, a.s), g = grayAt(f * 0.85);
-      sphere(c, LINE_X0 + 8 + i * 7, ys[a.s] - 6, 5, `rgb(${g + 60},${g + 60},${g + 60})`, `rgb(${g * 0.5 | 0},${g * 0.5 | 0},${g * 0.5 | 0})`);
+      const i = cnt[a.s]++;
+      sphere(c, LINE_X0 + 9 + i * 8, ys[a.s] - 6, 6, '#a4a4a4', '#2a2a2a');
     }
     m.levels.forEach((e, i) => badge(c, m, i, LINE_X1 + 14, ys[i]));      // level-number badges
     c.fillStyle = '#000'; c.font = 'bold 11px Arial'; c.textAlign = 'right'; c.textBaseline = 'alphabetic';
-    c.fillText(DL.t('energy.ground'), V.ENERGY_W - 6, ys[0] + 16);
+    if (m.tab === 'single') c.fillText(DL.t('energy.ground'), V.ENERGY_W - 6, ys[0] + 30);
 
     const ci = m.mode === 'single' ? m.collisionIndicator() : null;      // One Atom: "Energy at collision" indicator
     if (ci !== null) {
@@ -243,15 +236,10 @@
     }
   };
 
-  // sphere badge showing the level number at the right end of each level line
-  function badge(c, m, i, x, y) {
-    const g = grayAt(levelFraction(m, i) * 0.85), lt = Math.min(255, g + 70), dk = g * 0.55 | 0;
-    sphere(c, x, y, 11, `rgb(${lt},${lt},${lt})`, `rgb(${dk},${dk},${dk})`);
-    c.strokeStyle = '#111'; c.lineWidth = 1.2; c.beginPath(); c.arc(x, y, 11, 0, 6.283); c.stroke();
-    c.fillStyle = g > 130 ? '#000' : '#fff'; c.font = 'bold 11px Arial'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(i + 1, x, y + 1);
-  }
+  // level-number badge at the right end of each level line (same sprite as the atoms, scaled down)
+  function badge(c, m, i, x, y) { V.drawAtomSprite(c, levelFraction(m, i), i, x, y, 0.62); }
 
-  V.drawLegendAtom = (c, w, h) => { c.clearRect(0, 0, w, h); V.drawAtom(c, { levels: [-1, 0] }, { s: 0 }, w / 2, h / 2, Math.min(w, h) / 2 - 2); };
+  V.drawLegendAtom = (c, w, h) => { c.clearRect(0, 0, w, h); V.drawAtomSprite(c, 0, 0, w / 2, h / 2, 0.8); };
   V.drawLegendElectron = (c, w, h) => { c.clearRect(0, 0, w, h); V.drawElectron(c, w / 2, h / 2, 4); };
   V.drawLegendPhotons = (c, w, h) => {
     c.clearRect(0, 0, w, h);

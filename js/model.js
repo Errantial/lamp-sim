@@ -46,6 +46,9 @@
     m.maxCurrent = C.MAX_CURRENT[m.tab];
 
     const accel = () => m.V * C.ACC_K;
+    // fraction of the way from ground to the highest level (drives atom ring size and grey level)
+    m.levelFraction = s => { const L = m.levels, hi = L[L.length - 1]; return hi > L[0] ? (L[s] - L[0]) / (hi - L[0]) : 0; };
+    m.atomRadius = a => C.R_ATOM + 2 + 6 * m.levelFraction(a.s);
     const newAtom = (x, y, vx, vy) => ({ x, y, vx, vy, s: 0, t: 0 });
     m.newAtom = newAtom;
 
@@ -152,8 +155,9 @@
         if (rate > 0 && m.since > 1 / rate) { m.since = 0; spawnElectron(false); }
       }
 
-      const A = m.atoms, T = C.TUBE, R = C.R_ATOM;
+      const A = m.atoms, T = C.TUBE;
       for (const a of A) {
+        const R = m.atomRadius(a);
         a.x += a.vx * dt; a.y += a.vy * dt;
         if (a.x < T.x0 + R) { a.x = T.x0 + R; a.vx = Math.abs(a.vx); }
         if (a.x > T.x1 - R) { a.x = T.x1 - R; a.vx = -Math.abs(a.vx); }
@@ -163,21 +167,22 @@
       }
       for (let i = 0; i < A.length; i++) for (let j = i + 1; j < A.length; j++) {   // equal-mass elastic collisions (our model)
         const p = A[i], q = A[j], dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy);
-        if (d < 2 * R && d > 0) {
+        if (d < m.atomRadius(p) + m.atomRadius(q) && d > 0) {
           const nx = dx / d, ny = dy / d, rel = (p.vx - q.vx) * nx + (p.vy - q.vy) * ny;
           if (rel > 0) { p.vx -= rel * nx; p.vy -= rel * ny; q.vx += rel * nx; q.vy += rel * ny; }
         }
       }
 
-      const aMag = Math.abs(accel()), reach = C.R_ATOM + C.R_E;
+      const aMag = Math.abs(accel()), baseReach = C.R_ATOM + C.R_E;     // energy is measured to the base sphere, trigger uses the ring
       for (let i = m.electrons.length - 1; i >= 0; i--) {
         const e = m.electrons[i], px = e.x, vp = Math.abs(e.vx);
         e.x += e.vx * dt + 0.5 * accel() * dt * dt; e.vx += accel() * dt;   // exact constant-acceleration step
         if (e.x > C.ANODE_X || e.x < C.CATHODE_X) { m.electrons.splice(i, 1); continue; }   // absorbed by the far plate
         for (const a of A) {
           const dPrev = Math.hypot(px - a.x, e.y - a.y), dCur = Math.hypot(e.x - a.x, e.y - a.y);
-          if (dPrev > reach && dCur <= reach) {                        // first contact
-            collide(e, a, keOf(Math.sqrt(vp * vp + 2 * aMag * (dPrev - reach))));   // KE at the contact point
+          const trigger = m.atomRadius(a) + C.R_E;                    // PhET detects entry into the (state-sized) ring...
+          if (dPrev > trigger && dCur <= trigger) {
+            collide(e, a, keOf(Math.sqrt(vp * vp + 2 * aMag * Math.max(0, dPrev - baseReach))));   // ...but energy is KE at the base sphere
             break;
           }
         }

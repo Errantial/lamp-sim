@@ -86,4 +86,20 @@ test('collision indicator follows PhET (|V|*d/(plateDistance-2) + ground energy)
   assert.ok(Math.abs(m.collisionIndicator() - want) < 1e-9);
 });
 
+test('atom radius follows PhET: 17 px at ground, +6 px * energy fraction (23 px at the top level)', () => {
+  const m = single('hydrogen'); const a = m.atoms[0];
+  a.s = 0; assert.strictEqual(m.atomRadius(a), 17);
+  a.s = 5; assert.strictEqual(m.atomRadius(a), 23);
+  a.s = 1; assert.ok(Math.abs(m.atomRadius(a) - (17 + 6 * 10.2 / 13.222)) < 1e-9);
+});
+
+test('atoms stay inside the tube (wall bounce uses the state radius) and collide elastically', () => {
+  const m = DL.createModel({ tab: 'multiple', nAtoms: 30, rng: mulberry32(9) });
+  m.setMode('single'); let e0 = 0; for (const a of m.atoms) e0 += a.vx * a.vx + a.vy * a.vy;
+  for (let t = 0; t < 60000; t += 3) m.step(3);
+  let e1 = 0; for (const a of m.atoms) { e1 += a.vx * a.vx + a.vy * a.vy; const R = m.atomRadius(a), T = DL.C.TUBE;
+    assert.ok(a.x >= T.x0 + R - 1e-6 && a.x <= T.x1 - R + 1e-6 && a.y >= T.y0 + R - 1e-6 && a.y <= T.y1 - R + 1e-6); }
+  assert.ok(Math.abs(e1 - e0) / e0 < 1e-9, `kinetic energy changed ${e0} -> ${e1}`);
+});
+
 console.log(`\n${passed} tests passed`);

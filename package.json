@@ -1,0 +1,10 @@
+{
+  "name": "lamp-sim",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hydrogen discharge lamp simulation modelled on PhET's Neon Lights & Other Discharge Lamps",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "test": "node tests/model.test.js"
+  }
+}

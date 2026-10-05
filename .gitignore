@@ -1,2 +1,5 @@
 .playwright-mcp/
 notes/dl.jar
+notes/reference/
+dist/
+node_modules/

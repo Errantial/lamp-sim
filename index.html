@@ -25,6 +25,13 @@
       </ul>
     </div>
     <div class="menu">
+      <button aria-haspopup="true" aria-expanded="false" data-i18n="menu.challenges">Challenges</button>
+      <ul role="menu">
+        <li role="none"><button role="menuitem" id="mGas" data-i18n="ch.gas.item">Identify the Gas</button></li>
+        <li role="none"><button role="menuitem" id="mVolt" data-i18n="ch.volt.item">Find the Voltage</button></li>
+      </ul>
+    </div>
+    <div class="menu">
       <button aria-haspopup="true" aria-expanded="false" data-i18n="menu.help">Help</button>
       <ul role="menu"><li role="none"><button role="menuitem" id="mAbout" data-i18n="help.about">About…</button></li></ul>
     </div>
@@ -71,6 +78,23 @@
     </div>
 
     <aside class="panel">
+      <section id="challenge" class="challenge" hidden aria-labelledby="chTitle">
+        <h2 id="chTitle" data-i18n="ch.title">Challenge</h2>
+        <p id="chPrompt"></p>
+        <div class="chrow">
+          <select id="chGas" hidden aria-label="Gas"></select>
+          <label id="chVoltRow" hidden><input id="chVolt" type="text" inputmode="decimal" size="6" aria-label="Voltage in volts"> V</label>
+          <button id="chCheck" type="button" class="specbtn" data-i18n="ch.check">Check</button>
+        </div>
+        <p id="chFeedback" role="status" aria-live="polite"></p>
+        <div class="chrow">
+          <button id="chHint" type="button" class="specbtn" data-i18n="ch.hint">Hint</button>
+          <button id="chGive" type="button" class="specbtn" data-i18n="ch.give">Show answer</button>
+          <button id="chNext" type="button" class="specbtn" data-i18n="ch.next">New challenge</button>
+          <button id="chEnd" type="button" class="specbtn" data-i18n="ch.end">End challenge</button>
+        </div>
+        <p id="chScore" class="chscore"></p>
+      </section>
       <h2 data-i18n="legend.title">Legend</h2>
       <div class="legend">
         <canvas id="lgAtom" width="60" height="28"></canvas><span data-i18n="legend.atom">Atom</span>
@@ -129,6 +153,7 @@
 <script src="js/model.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/view.js"></script>
+<script src="js/challenge.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

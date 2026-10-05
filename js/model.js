@@ -57,6 +57,7 @@
       return { supplied, uv: f(P.uv), visible: f(P.visible), ir: f(P.ir), light: f(total) };
     };
 
+    m.random = rnd;                                                  // the model's random stream (seedable), reused by challenges
     const accel = () => m.V * C.ACC_K;
     // fraction of the way from ground to the highest level (drives atom ring size and grey level)
     m.levelFraction = s => { const L = m.levels, hi = L[L.length - 1]; return hi > L[0] ? (L[s] - L[0]) / (hi - L[0]) : 0; };
@@ -243,6 +244,21 @@
       t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
       return ((t ^ t >>> 14) >>> 0) / 4294967296;
     };
+  };
+
+  // Lowest battery voltage that lets an electron fired from the plate centre excite a *centred single atom* to level n
+  // (energy is measured at the base-sphere contact point, 196 px along the field; see notes).
+  DL.thresholdVoltage = function (levels, n) {
+    return (levels[n] - levels[0]) / (C.ACC_K * 2 * C.KE_PER_V2 * 196);
+  };
+  // Challenge targets: every (gas, level) the One Atom tab can reach with a battery of at most maxV volts.
+  DL.reachableTargets = function (maxV) {
+    const out = [];
+    for (const key of ['hydrogen', 'mercury', 'sodium', 'neon']) {
+      const L = DL.ELEMENTS[key].levels;
+      for (let n = 1; n < L.length; n++) { const v = DL.thresholdVoltage(L, n); if (v <= maxV) out.push({ element: key, level: n, v }); }
+    }
+    return out;
   };
 
   DL.keOf = keOf; DL.speedOf = speedOf;

@@ -211,4 +211,27 @@ test('no collision below the first gap means an empty histogram and zero light',
   assert.strictEqual(m.stats.excitations, 0); assert.strictEqual(m.stats.photons, 0); assert.ok(m.stats.bins.slice(11).every(n => n === 0), 'no collision energy above the field gain');
 });
 
+test('thresholdVoltage matches the measured single-atom thresholds; reachableTargets honours the 30 V limit', () => {
+  const H = DL.ELEMENTS.hydrogen.levels;
+  assert.ok(Math.abs(DL.thresholdVoltage(H, 1) - 21.85) < 0.01);
+  const m = single('hydrogen', 31);                                   // cross-check against an actual simulated shot (+/- 0.15 V)
+  assert.strictEqual(shoot(m, DL.thresholdVoltage(H, 2) - 0.2, 2500).maxS < 2, true);
+  const targets = DL.reachableTargets(29.5);
+  assert.ok(targets.length > 10);
+  assert.ok(targets.some(t => t.element === 'hydrogen' && t.level === 1));
+  assert.ok(!targets.some(t => t.element === 'neon'), 'neon needs more than 30 V on a centred single atom');
+  assert.ok(targets.every(t => t.v > 0 && t.v <= 29.5));
+});
+
+test('every challenge target has a correct answer key (unreachable just below, reachable just above)', () => {
+  for (const tg of DL.reachableTargets(29.5)) {
+    const m = single(tg.element, 100 + tg.level);
+    const below = shoot(m, tg.v - 0.15, 2500).maxS;
+    assert.ok(below < tg.level, `${tg.element} level ${tg.level + 1} reached below its threshold ${tg.v.toFixed(2)} V`);
+    let reached = false;                                                // excitation picks uniformly among reachable levels, so allow a few shots
+    for (let k = 0; k < 80 && !reached; k++) reached = shoot(m, tg.v + 0.15, 2500).maxS >= tg.level;
+    assert.ok(reached, `${tg.element} level ${tg.level + 1} never reached just above ${tg.v.toFixed(2)} V`);
+  }
+});
+
 console.log(`\n${passed} tests passed`);

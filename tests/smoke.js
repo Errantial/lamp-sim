@@ -81,6 +81,25 @@ const server = http.createServer((req, res) => {
     await page.click('#statsReset');
     assert.strictEqual(await page.evaluate(() => lampSim.models.multiple.stats.collisions), 0);
 
+    // challenges: identify the gas (levels and names hidden), then find the voltage
+    await page.goto(base + '?seed=5');
+    await page.waitForFunction(() => window.lampSim);
+    await page.click('.menu:nth-child(3) > button'); await page.click('#mGas');
+    assert.ok(await page.evaluate(() => lampSim.models.multiple.mystery), 'gas is hidden');
+    assert.ok(await page.isDisabled('#element'), 'atom type is locked while the gas is a mystery');
+    await page.selectOption('#chGas', await page.evaluate(() => ['hydrogen', 'mercury', 'sodium', 'neon'].find(g => g !== lampSim.challenge.state.target)));
+    await page.click('#chCheck'); assert.ok((await page.textContent('#chFeedback')).startsWith('Not quite'));
+    await page.selectOption('#chGas', await page.evaluate(() => lampSim.challenge.state.target));
+    await page.click('#chCheck'); assert.ok((await page.textContent('#chFeedback')).startsWith('Correct!'));
+    assert.strictEqual(await page.evaluate(() => lampSim.models.multiple.mystery), false, 'answer reveals the gas');
+    await page.click('.menu:nth-child(3) > button'); await page.click('#mVolt');
+    assert.strictEqual(await page.evaluate(() => lampSim.tab), 'single');
+    await page.fill('#chVolt', '1'); await page.click('#chCheck'); assert.ok((await page.textContent('#chFeedback')).startsWith('Not quite'));
+    await page.fill('#chVolt', (await page.evaluate(() => lampSim.challenge.state.target.v)).toFixed(1)); await page.click('#chCheck');
+    assert.ok((await page.textContent('#chFeedback')).startsWith('Correct!'));
+    assert.strictEqual(await page.textContent('#chScore'), 'Solved: 2 of 2');
+    await page.click('#chEnd'); assert.ok(await page.isHidden('#challenge'));
+
     assert.deepStrictEqual(errors, [], 'no console/page errors');
     console.log('smoke test passed');
   } finally {

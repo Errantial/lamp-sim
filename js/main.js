@@ -66,8 +66,11 @@
     $('pct').value = m.pct; $('pctText').value = Math.round(m.pct) + '%';
     document.querySelectorAll('input[name=mode]').forEach(r => { r.checked = r.value === m.mode; });
     $('fire').hidden = m.mode !== 'single'; $('pct').hidden = $('pctText').hidden = m.mode !== 'continuous';
-    $('element').value = m.elementKey;
-    $('levelsRow').classList.toggle('show', m.configurable); $('nLevels').value = m.levels.length;
+    const sel = $('element'); let qm = [...sel.options].find(o => o.value === '?');       // mystery gas shows as a locked "?" entry
+    if (m.mystery && !qm) { qm = new Option(DL.t('ch.mystery'), '?'); sel.add(qm); }
+    if (!m.mystery && qm) qm.remove();
+    sel.value = m.mystery ? '?' : m.elementKey; sel.disabled = !!m.mystery;
+    $('levelsRow').classList.toggle('show', m.configurable && !m.mystery); $('nLevels').value = m.levels.length;
     $('optSpec').checked = s.spec; $('optSquig').checked = s.squig; $('optSlow').checked = s.slow; $('optLines').checked = s.lines;
     $('specBtns').hidden = !s.spec; $('sStop').textContent = DL.t(m.specRun ? 'spec.stop' : 'spec.start');
     $('atomsRow').hidden = tab === 'single'; $('natoms').value = m.atoms.length; $('nOut').textContent = m.atoms.length;
@@ -157,7 +160,7 @@
     if (st().spec && py > S.dy && py < S.dy + S.dh) {
       const hit = V.spectrumLayout(m).find(mk => Math.abs(mk.x - px) <= 5);
       if (hit) text = DL.t('tip.lineCount', { label: V.lineLabel(m, hit.w) || '—', w: hit.w < 300 ? '< 300' : hit.w > 800 ? '> 800' : hit.w.toFixed(1), c: hit.n });
-      else if (st().lines && py < S.dy + 24) {
+      else if (st().lines && !m.mystery && py < S.dy + 24) {
         const ln = V.possibleLines(m).find(l => l.w >= 300 && l.w <= 800 && Math.abs(V.specX(l.w) - px) <= 5);
         if (ln) text = DL.t('tip.line', { label: V.lineLabel(m, ln.w), w: ln.w.toFixed(1) });
       }
@@ -166,7 +169,7 @@
   });
   $('stage').addEventListener('pointerleave', () => { tip.style.display = 'none'; });
   $('energy').addEventListener('pointermove', e => {
-    if (dragLevel >= 0) return;
+    if (dragLevel >= 0 || model().mystery) return;
     const m = model(), p = energyPt(e), ys = V.energyY(m);
     const near = ys.reduce((best, y, i) => Math.abs(y - p.y) < 8 && (best < 0 || Math.abs(y - p.y) < Math.abs(ys[best] - p.y)) ? i : best, -1);
     if (near >= 0) showTip(DL.t('tip.level', { n: near + 1, e: m.levels[near].toFixed(2) }), e); else tip.style.display = 'none';
@@ -208,7 +211,7 @@
       li.appendChild(b); ul.appendChild(li);
     }
   }
-  function applyLang() { DL.applyI18n(); fillElementSelect(); buildLanguageMenu(); syncUI(); }
+  function applyLang() { DL.applyI18n(); fillElementSelect(); buildLanguageMenu(); syncUI(); if (challenge.state.kind) challenge.rerender(); }
 
   $('mSpeed').onclick = () => { closeMenus(); $('speedDlg').showModal(); };
   $('dt').oninput = e => { DT = +e.target.value; $('dtOut').textContent = DT; };
@@ -237,8 +240,11 @@
     requestAnimationFrame(frame);
   }
 
+  const challenge = DL.createChallenge({ models, setTab, syncUI });
+  $('mGas').onclick = () => { closeMenus(); challenge.start('gas'); };
+  $('mVolt').onclick = () => { closeMenus(); challenge.start('volt'); };
   applyParams();
   applyLang();
   requestAnimationFrame(frame);
-  window.lampSim = { seed, setupLink, models, ui, get tab() { return tab; }, setTab, syncUI };       // handle for tests / debugging
+  window.lampSim = { seed, setupLink, challenge, models, ui, get tab() { return tab; }, setTab, syncUI };       // handle for tests / debugging
 })();

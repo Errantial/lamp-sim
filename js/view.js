@@ -173,7 +173,7 @@
     c.textAlign = 'left'; c.fillText(DL.t('spec.farUV'), S.dx + 8, base + 18);
     c.textAlign = 'right'; c.fillText(DL.t('spec.farIR'), S.dx + S.dw - 18, base + 18);
 
-    if (st.lines) {                                                      // optional: mark where every possible line would appear
+    if (st.lines && !m.mystery) {                                        // optional: mark where every possible line would appear
       c.font = '10px Arial'; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
       const groups = new Map();
       for (const ln of V.possibleLines(m)) {
@@ -207,6 +207,7 @@
     return out.sort((p, q) => p.w - q.w);
   };
   V.lineLabel = function (m, w) {                                        // e.g. "Balmer-α (3→2)" for hydrogen, "3→2" otherwise
+    if (m.mystery) return '';                                            // challenge mode hides what could reveal the gas
     const ln = V.possibleLines(m).find(l => Math.abs(l.w - w) < 0.05);
     if (!ln) return '';
     const pair = `${ln.from + 1}→${ln.to + 1}`;
@@ -230,6 +231,10 @@
   V.drawEnergy = function (c, m, st) {
     c.clearRect(0, 0, V.ENERGY_W, V.ENERGY_H);
     c.fillStyle = '#fff'; c.fillRect(0, 0, V.ENERGY_W, V.ENERGY_H);
+    if (m.mystery) {                                                     // challenge: energy levels would give the gas away
+      c.fillStyle = '#667'; c.font = 'italic 13px Arial'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(DL.t('ch.hidden'), V.ENERGY_W / 2, V.ENERGY_H / 2); return;
+    }
     const single = m.tab === 'single';                                   // One Atom: short level ticks + "Ground state" beside the badge
     const x0 = single ? 64 : LINE_X0, x1 = single ? 90 : LINE_X1, bx = single ? 117 : LINE_X1 + 14;
     c.strokeStyle = '#000'; c.fillStyle = '#000'; c.lineWidth = 2;
@@ -321,7 +326,7 @@
     c.fillText(DL.t('analysis.hist'), 6, 13);
     // excitation thresholds from the ground state (dashed): why the histogram clusters
     c.strokeStyle = 'rgba(120,120,200,.55)'; c.setLineDash([3, 3]); c.lineWidth = 1;
-    for (let i = 1; i < m.levels.length; i++) {
+    for (let i = 1; !m.mystery && i < m.levels.length; i++) {
       const gap = m.levels[i] - m.levels[0]; if (gap >= n) continue;
       const x = L + gap / n * pw; c.beginPath(); c.moveTo(x, T); c.lineTo(x, T + ph); c.stroke();
     }

@@ -38,6 +38,13 @@ html, body { margin: 0; background: #e9eef3; color: var(--ink); font: 14px/1.35 
 #levelsRow { display: none; font-size: 13px; align-items: center; gap: 6px; }
 #levelsRow.show { display: flex; }
 #energy { display: block; width: 100%; max-width: 300px; margin: 6px auto; background: #fff; border: 1px solid #aaa; touch-action: none; }
+.challenge { margin: 8px 2px; padding: 6px 10px 8px; background: #fff7dc; border: 1px solid #d9b84a; border-radius: 4px; font-size: 13px; }
+.challenge h2 { margin: 0 0 4px; border: 0; font-weight: bold; }
+.challenge p { margin: 4px 0; }
+.chrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+.chrow select, .chrow input { font: inherit; }
+#chFeedback { min-height: 1.4em; font-weight: bold; }
+.chscore { opacity: .8; }
 .analysis { margin: 8px 2px; padding: 4px 6px 8px; border: 1px solid var(--line); background: #fff; }
 .analysis summary { cursor: pointer; font-weight: bold; color: #234; }
 .analysis canvas { display: block; width: 100%; max-width: 300px; margin: 6px auto; background: #fff; }

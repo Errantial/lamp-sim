@@ -60,6 +60,18 @@ const server = http.createServer((req, res) => {
     await page.click('#clockPause'); assert.ok(await page.isEnabled('#clockStep'));
     await page.click('#clockPause');
     await page.click('#lampsBtn'); assert.ok(await page.evaluate(() => document.getElementById('lampsDlg').open)); await page.keyboard.press('Escape');
+    // URL presets restore a setup; the setup link round-trips; line markers label hydrogen's Balmer-alpha line
+    await page.goto(base + '?tab=single&element=sodium&v=-12.5&pct=55&mode=continuous&lines=1&seed=3');
+    await page.waitForFunction(() => window.lampSim);
+    const st = await page.evaluate(() => { const m = lampSim.models.single; return [lampSim.tab, m.elementKey, m.V, m.pct, m.mode, lampSim.ui.single.lines, lampSim.seed]; });
+    assert.deepStrictEqual(st, ['single', 'sodium', -12.5, 55, 'continuous', true, 3]);
+    assert.ok((await page.evaluate(() => lampSim.setupLink())).includes('element=sodium'));
+    await page.selectOption('#element', 'hydrogen');
+    const box = await page.locator('#stage').boundingBox(), k = box.width / 710;
+    await page.mouse.move(box.x + (130 + (656.3 - 300) / 500 * 440) * k, box.y + 422 * k);
+    await page.waitForFunction(() => document.getElementById('tip').style.display === 'block');
+    assert.ok((await page.textContent('#tip')).startsWith('Balmer-α (3→2)'), 'tooltip names the Balmer-alpha line');
+
     assert.deepStrictEqual(errors, [], 'no console/page errors');
     console.log('smoke test passed');
   } finally {

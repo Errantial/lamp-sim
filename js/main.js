@@ -11,10 +11,36 @@
   const seedParam = new URLSearchParams(location.search).get('seed'), seed = seedParam === null || isNaN(+seedParam) ? null : (+seedParam | 0);
   const rngFor = k => seed === null ? undefined : DL.mulberry32(seed + k);
   const models = { single: DL.createModel({ tab: 'single', rng: rngFor(1) }), multiple: DL.createModel({ tab: 'multiple', nAtoms: C.MAX_ATOMS, rng: rngFor(2) }) };
-  const defaultUi = k => ({ squig: k === 'single', spec: true, slow: false, paused: false });
+  const defaultUi = k => ({ squig: k === 'single', spec: true, slow: false, paused: false, lines: false });
   const ui = { single: defaultUi('single'), multiple: defaultUi('multiple') };
   let tab = 'multiple';
   const model = () => models[tab], st = () => ui[tab];
+
+  // ---- URL presets: ?tab=single&element=neon&v=24&pct=60&mode=continuous&atoms=12&lines=1&squig=1&spec=0&slow=0&seed=5 ----
+  const params = new URLSearchParams(location.search);
+  const flag = k => params.get(k) === null ? null : /^(1|true|yes|on)$/i.test(params.get(k));
+  const num = (k, lo, hi) => { const v = parseFloat(params.get(k)); return isNaN(v) ? null : Math.max(lo, Math.min(hi, v)); };
+  function applyParams() {
+    if (params.get('tab') === 'single' || params.get('tab') === 'multiple') tab = params.get('tab');
+    const m = model(), s = st();
+    if (params.get('element') && DL.ELEMENTS[params.get('element')]) m.setElement(params.get('element'));
+    if (num('levels', 2, 6) !== null && m.configurable) m.setNumLevels(Math.round(num('levels', 2, 6)));
+    if (num('v', C.MIN_V, C.MAX_V) !== null) m.setVoltage(num('v', C.MIN_V, C.MAX_V));
+    if (num('pct', 0, 100) !== null) m.setPct(num('pct', 0, 100));
+    if (params.get('mode') === 'single' || params.get('mode') === 'continuous') m.setMode(params.get('mode'));
+    if (num('atoms', 1, C.MAX_ATOMS) !== null && tab === 'multiple') m.setAtomCount(Math.round(num('atoms', 1, C.MAX_ATOMS)));
+    for (const [k, f] of [['lines', 'lines'], ['squig', 'squig'], ['spec', 'spec'], ['slow', 'slow']]) if (flag(k) !== null) s[f] = flag(k);
+  }
+  function setupLink() {                                         // URL that recreates the active tab's current setup
+    const m = model(), s = st(), q = new URLSearchParams();
+    q.set('tab', tab); q.set('element', m.elementKey); q.set('v', m.V.toFixed(2)); q.set('pct', Math.round(m.pct)); q.set('mode', m.mode);
+    if (m.configurable) q.set('levels', m.levels.length);
+    if (tab === 'multiple') q.set('atoms', m.atoms.length);
+    q.set('lines', +s.lines); q.set('squig', +s.squig); q.set('spec', +s.spec);
+    if (seed !== null) q.set('seed', seed);
+    return location.origin + location.pathname + '?' + q.toString();
+  }
+  function toast(text) { const t = $('toast'); t.textContent = text; t.hidden = false; clearTimeout(toast.id); toast.id = setTimeout(() => { t.hidden = true; }, 2200); }
 
   // ---- canvases ----
   const stageCtx = V.setup($('stage'), V.STAGE_W, V.STAGE_H), energyCtx = V.setup($('energy'), V.ENERGY_W, V.ENERGY_H);
@@ -41,7 +67,7 @@
     $('fire').hidden = m.mode !== 'single'; $('pct').hidden = $('pctText').hidden = m.mode !== 'continuous';
     $('element').value = m.elementKey;
     $('levelsRow').classList.toggle('show', m.configurable); $('nLevels').value = m.levels.length;
-    $('optSpec').checked = s.spec; $('optSquig').checked = s.squig; $('optSlow').checked = s.slow;
+    $('optSpec').checked = s.spec; $('optSquig').checked = s.squig; $('optSlow').checked = s.slow; $('optLines').checked = s.lines;
     $('specBtns').hidden = !s.spec; $('sStop').textContent = DL.t(m.specRun ? 'spec.stop' : 'spec.start');
     $('atomsRow').hidden = tab === 'single'; $('natoms').value = m.atoms.length; $('nOut').textContent = m.atoms.length;
     syncClock();
@@ -96,6 +122,7 @@
   };
   $('optSquig').onchange = e => { st().squig = e.target.checked; };
   $('optSlow').onchange = e => { st().slow = e.target.checked; };
+  $('optLines').onchange = e => { st().lines = e.target.checked; };
   $('sStop').onclick = () => { model().specRun = !model().specRun; syncUI(); };
   $('sReset').onclick = () => model().spectrum.clear();
 
@@ -116,17 +143,33 @@
   });
   $('energy').addEventListener('pointerup', () => { dragLevel = -1; });
 
-  // ---- spectrometer tooltip ----
+  // ---- tooltips: spectrometer lines and energy levels ----
+  const tip = $('tip');
+  const showTip = (text, e) => {
+    const wr = tip.parentElement.getBoundingClientRect();
+    tip.textContent = text; tip.style.left = (e.clientX - wr.left + 12) + 'px'; tip.style.top = (e.clientY - wr.top - 24) + 'px'; tip.style.display = 'block';
+  };
   $('stage').addEventListener('pointermove', e => {
-    const r = $('stage').getBoundingClientRect(), x = (e.clientX - r.left) * V.STAGE_W / r.width, y = (e.clientY - r.top) * V.STAGE_H / r.height;
-    const tip = $('tip'); let hit = null;
-    if (st().spec && y > V.SPEC.dy && y < V.SPEC.dy + V.SPEC.dh) hit = V.spectrumLayout(model()).find(mk => Math.abs(mk.x - x) <= 5);
-    if (!hit) { tip.style.display = 'none'; return; }
-    tip.textContent = `${hit.w < 300 ? '< 300' : hit.w > 800 ? '> 800' : hit.w.toFixed(1)} ${DL.t('spec.nm')} · ${hit.n} ${DL.t('spec.count')}`;
-    const wr = $('stage').parentElement.getBoundingClientRect();
-    tip.style.left = (e.clientX - wr.left + 12) + 'px'; tip.style.top = (e.clientY - wr.top - 24) + 'px'; tip.style.display = 'block';
+    const r = $('stage').getBoundingClientRect(), px = (e.clientX - r.left) * V.STAGE_W / r.width, py = (e.clientY - r.top) * V.STAGE_H / r.height;
+    const m = model(), S = V.SPEC; let text = '';
+    if (st().spec && py > S.dy && py < S.dy + S.dh) {
+      const hit = V.spectrumLayout(m).find(mk => Math.abs(mk.x - px) <= 5);
+      if (hit) text = DL.t('tip.lineCount', { label: V.lineLabel(m, hit.w) || '—', w: hit.w < 300 ? '< 300' : hit.w > 800 ? '> 800' : hit.w.toFixed(1), c: hit.n });
+      else if (st().lines && py < S.dy + 24) {
+        const ln = V.possibleLines(m).find(l => l.w >= 300 && l.w <= 800 && Math.abs(V.specX(l.w) - px) <= 5);
+        if (ln) text = DL.t('tip.line', { label: V.lineLabel(m, ln.w), w: ln.w.toFixed(1) });
+      }
+    }
+    if (text) showTip(text, e); else tip.style.display = 'none';
   });
-  $('stage').addEventListener('pointerleave', () => { $('tip').style.display = 'none'; });
+  $('stage').addEventListener('pointerleave', () => { tip.style.display = 'none'; });
+  $('energy').addEventListener('pointermove', e => {
+    if (dragLevel >= 0) return;
+    const m = model(), p = energyPt(e), ys = V.energyY(m);
+    const near = ys.reduce((best, y, i) => Math.abs(y - p.y) < 8 && (best < 0 || Math.abs(y - p.y) < Math.abs(ys[best] - p.y)) ? i : best, -1);
+    if (near >= 0) showTip(DL.t('tip.level', { n: near + 1, e: m.levels[near].toFixed(2) }), e); else tip.style.display = 'none';
+  });
+  $('energy').addEventListener('pointerleave', () => { tip.style.display = 'none'; });
 
   // ---- screen-reader announcements (throttled) ----
   let lastSay = 0;
@@ -172,6 +215,11 @@
     if (seed !== null) { $('seedInfo').hidden = false; $('seedInfo').textContent = 'Seed: ' + seed; }
     $('aboutDlg').showModal();
   };
+  $('mCopy').onclick = async () => {
+    closeMenus(); const url = setupLink();
+    try { await navigator.clipboard.writeText(url); toast(DL.t('file.copied')); }
+    catch (e) { window.prompt(DL.t('file.copylink'), url); }      // clipboard blocked (e.g. insecure context): let the user copy it
+  };
   $('mReset').onclick = () => {
     closeMenus(); models.single.reset(); models.multiple.reset();
     ui.single = defaultUi('single'); ui.multiple = defaultUi('multiple'); DT = 12; $('dt').value = 12; $('dtOut').textContent = 12; syncUI();
@@ -186,7 +234,8 @@
     requestAnimationFrame(frame);
   }
 
+  applyParams();
   applyLang();
   requestAnimationFrame(frame);
-  window.lampSim = { seed, models, ui, get tab() { return tab; }, setTab, syncUI };       // handle for tests / debugging
+  window.lampSim = { seed, setupLink, models, ui, get tab() { return tab; }, setTab, syncUI };       // handle for tests / debugging
 })();

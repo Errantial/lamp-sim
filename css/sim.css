@@ -78,6 +78,7 @@ dialog h3 { margin: 0 0 8px; }
 dialog .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
 dialog .row input[type=range] { flex: 1; }
 [hidden] { display: none !important; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #16202be6; color: #fff; padding: 8px 16px; border-radius: 6px; z-index: 50; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 :focus-visible { outline: 3px solid #1a5fd0; outline-offset: 1px; }
 @media (max-width: 760px) {

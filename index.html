@@ -14,7 +14,8 @@
   <nav class="menubar" aria-label="Main menu">
     <div class="menu">
       <button aria-haspopup="true" aria-expanded="false" data-i18n="menu.file">File</button>
-      <ul role="menu"><li role="none"><button role="menuitem" id="mReset" data-i18n="file.reset">Reset All</button></li></ul>
+      <ul role="menu"><li role="none"><button role="menuitem" id="mCopy" data-i18n="file.copylink">Copy Link to This Setup</button></li>
+        <li role="none"><button role="menuitem" id="mReset" data-i18n="file.reset">Reset All</button></li></ul>
     </div>
     <div class="menu">
       <button aria-haspopup="true" aria-expanded="false" data-i18n="menu.options">Options</button>
@@ -87,6 +88,7 @@
       <div class="options">
         <label><input type="checkbox" id="optSpec" checked> <span data-i18n="options.spectrometer">Spectrometer</span></label>
         <label><input type="checkbox" id="optSquig"> <span data-i18n="options.squiggles">Squiggles</span></label>
+        <label><input type="checkbox" id="optLines"> <span data-i18n="options.lines">Show line positions</span></label>
         <label><input type="checkbox" id="optSlow"> <span data-i18n="options.slow">Run in slow motion</span></label>
         <label class="atoms-row" id="atomsRow"><span><span data-i18n="options.atoms">Number of atoms</span>: <output id="nOut">30</output></span>
           <input type="range" id="natoms" min="1" max="30" step="1" value="30"></label>
@@ -96,6 +98,7 @@
 </div>
 
 <div id="live" class="sr-only" aria-live="polite"></div>
+<div id="toast" role="status" hidden></div>
 
 <dialog id="speedDlg" aria-labelledby="speedTitle">
   <h3 id="speedTitle" data-i18n="speed.title">Simulation Speed</h3>

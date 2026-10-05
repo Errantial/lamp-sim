@@ -173,6 +173,18 @@
     c.textAlign = 'left'; c.fillText(DL.t('spec.farUV'), S.dx + 8, base + 18);
     c.textAlign = 'right'; c.fillText(DL.t('spec.farIR'), S.dx + S.dw - 18, base + 18);
 
+    if (st.lines) {                                                      // optional: mark where every possible line would appear
+      c.font = '10px Arial'; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+      const groups = new Map();
+      for (const ln of V.possibleLines(m)) {
+        if (ln.w < 300 || ln.w > 800) continue;
+        const x = specX(ln.w), col = V.rgb(ln.w);
+        c.fillStyle = col; c.beginPath(); c.moveTo(x - 4, S.dy); c.lineTo(x + 4, S.dy); c.lineTo(x, S.dy + 8); c.fill();
+        if (ln.series) { const g = groups.get(ln.series) || []; g.push(x); groups.set(ln.series, g); }
+      }
+      c.fillStyle = '#fff';
+      for (const [name, xs] of groups) c.fillText(name, (Math.min(...xs) + Math.max(...xs)) / 2, S.dy + 20);
+    }
     const hmax = S.dh - 4;
     for (const mk of V.spectrumLayout(m)) {                               // stacked dots, one per photon (compressed if needed)
       const pitch = Math.min(4, hmax / mk.n), col = mk.w < 300 || mk.w > 800 ? '#cfcfcf' : V.rgb(mk.w);
@@ -180,6 +192,25 @@
       for (let i = 0; i < mk.n; i++) c.fillRect(mk.x - 2, base - 2 - (i + 1) * pitch, 4, Math.max(1, pitch - 1));
     }
     if (!m.specRun) { c.fillStyle = 'rgba(255,255,255,.7)'; c.textAlign = 'left'; c.font = '11px Arial'; c.fillText('■', S.dx + 6, S.dy + 14); }
+  };
+
+  // ---------------- line catalogue (positions, series names, labels) ----------------
+  const SERIES = ['Lyman', 'Balmer', 'Paschen', 'Brackett', 'Pfund'], GREEK = ['α', 'β', 'γ', 'δ', 'ε', 'ζ'];
+  V.possibleLines = function (m) {                                       // every photon the current atom can emit (deduplicated by wavelength)
+    const out = [], seen = new Set(), el = DL.ELEMENTS[m.elementKey], n = m.levels.length;
+    const pairs = el && el.transitions ? el.transitions.filter(t => t[0] > t[1] && t[0] < n).map(t => [t[0], t[1]])
+      : [].concat(...Array.from({ length: n }, (_, f) => Array.from({ length: f }, (_, t) => [f, t])));
+    for (const [from, to] of pairs) {
+      const w = DL.C.HC / (m.levels[from] - m.levels[to]), k = w.toFixed(2);
+      if (!seen.has(k)) { seen.add(k); out.push({ w, from, to, series: m.elementKey === 'hydrogen' ? SERIES[to] : null }); }
+    }
+    return out.sort((p, q) => p.w - q.w);
+  };
+  V.lineLabel = function (m, w) {                                        // e.g. "Balmer-α (3→2)" for hydrogen, "3→2" otherwise
+    const ln = V.possibleLines(m).find(l => Math.abs(l.w - w) < 0.05);
+    if (!ln) return '';
+    const pair = `${ln.from + 1}→${ln.to + 1}`;
+    return ln.series ? `${ln.series}-${GREEK[ln.from - ln.to - 1] || ''} (${pair})` : pair;
   };
 
   // ---------------- energy panel ----------------

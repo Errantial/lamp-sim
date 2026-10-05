@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test            # model + invariants + parse checks
+      - run: npm run build       # dist/lamp-sim
+      - run: npx playwright install --with-deps chromium
+      - run: npm run smoke       # real browser: both tabs, all atom types, Fire, dialogs, no console errors

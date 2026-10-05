@@ -5,6 +5,11 @@
   "description": "Hydrogen discharge lamp simulation modelled on PhET's Neon Lights & Other Discharge Lamps",
   "scripts": {
     "build": "node scripts/build.js",
-    "test": "node tests/model.test.js"
+    "test": "node tests/model.test.js",
+    "smoke": "node tests/smoke.js",
+    "check": "npm test && npm run build && npm run smoke"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
   }
 }

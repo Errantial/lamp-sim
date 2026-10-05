@@ -42,6 +42,17 @@ html, body { margin: 0; background: #e9eef3; color: var(--ink); font: 14px/1.35 
 .options label { display: flex; align-items: center; gap: 6px; }
 .options .atoms-row { flex-direction: column; align-items: stretch; gap: 0; }
 
+/* bottom bar: actual-lamps picture + clock controls (as in PhET) */
+.bottombar { display: flex; align-items: center; justify-content: center; gap: 14px; background: #ececec; border-top: 1px solid #aaa; padding: 8px 10px; }
+.actualbtn { font: 13px Arial; line-height: 1.25; max-width: 190px; padding: 5px 10px; background: linear-gradient(#fff, #d5dde8); border: 1px solid #7d8da3; border-radius: 3px; cursor: pointer; }
+.roundbtn { width: 40px; height: 40px; border-radius: 50%; padding: 0; border: 2px solid #5a6b80; background: radial-gradient(circle at 35% 30%, #fff, #b9c4d2); cursor: pointer; display: grid; place-items: center; }
+.roundbtn.blue { background: radial-gradient(circle at 35% 30%, #9fe6ff, #1d8fc4); border-color: #17506f; }
+.roundbtn svg { width: 22px; height: 22px; fill: #fff; }
+.roundbtn:not(.blue) svg { fill: #44566c; }
+.roundbtn:disabled { opacity: .45; cursor: default; }
+dialog canvas { max-width: 100%; height: auto; display: block; margin: 6px 0; border-radius: 6px; }
+dialog .credit { font-size: 12px; opacity: .8; }
+
 /* overlays positioned in stage coordinates (710 x 640) */
 .ov { position: absolute; }
 .battery-ov { left: calc(305 / 710 * 100%); top: calc(30 / 640 * 100%); width: calc(100 / 710 * 100%); }

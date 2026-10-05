@@ -82,6 +82,8 @@ test('configurable atom: default levels, and decay rule (50% one level down, els
 
 test('collision indicator follows PhET (|V|*d/(plateDistance-2) + ground energy)', () => {
   const m = single('hydrogen'); m.setVoltage(21);
+  assert.strictEqual(m.collisionIndicator(), null, 'hidden until the first collision');
+  m.indicatorEnabled = true;
   const d = Math.abs(130 - (345 - Math.sqrt(15 * 15 - 0))) - 2, want = 21 * d / 428 - 13.6;
   assert.ok(Math.abs(m.collisionIndicator() - want) < 1e-9);
 });
@@ -113,6 +115,79 @@ test('photons are removed outside the PhET model bounds (x 70..870, y -200..600)
   const m = single('hydrogen'); const B = DL.C.PHOTON_BOUNDS;
   m.photons = [{ x: 700, y: 300, vx: 0, vy: 0, w: 500, t: 0 }, { x: 900, y: 300, vx: 0, vy: 0, w: 500, t: 0 }, { x: 300, y: 650, vx: 0, vy: 0, w: 500, t: 0 }, { x: 300, y: -150, vx: 0, vy: 0, w: 500, t: 0 }];
   m.step(1); assert.strictEqual(m.photons.length, 2); assert.ok(B.y1 === 600 && B.y0 === -200);
+});
+
+// ---- per-element behaviour ----
+const ELEMENTS = ['hydrogen', 'mercury', 'sodium', 'neon'];
+// voltage at which an electron from the plate centre reaches the single atom's contact point with energy `gap`
+const thresholdV = gap => gap / (DL.C.ACC_K * 2 * DL.C.KE_PER_V2 * 196);
+
+for (const el of ELEMENTS) {
+  test(`${el}: first excitation threshold matches the lowest gap`, () => {
+    const m = single(el, 21), L = m.levels, gap = Math.min(...L.slice(1).map(e => e - L[0])), v0 = thresholdV(gap);
+    if (v0 + 0.4 > DL.C.MAX_V) {                                      // verified live in PhET: Neon never excites a centred single atom at 30 V
+      assert.strictEqual(shoot(m, DL.C.MAX_V, 2500).maxS, 0, `${el} should not excite at max voltage (needs ${v0.toFixed(1)} V)`);
+      return;
+    }
+    assert.strictEqual(shoot(m, v0 - 0.4, 2500).maxS, 0, 'below threshold');
+    assert.ok(shoot(m, v0 + 0.4, 2500).maxS >= 1, 'above threshold');
+  });
+
+  test(`${el}: decay frequencies follow the transition weights; photons have wavelength 1239.84/gap`, () => {
+    const m = single(el, 5), N = 4000, tr = DL.ELEMENTS[el].transitions;
+    for (let s = 1; s < m.levels.length; s++) {
+      const rows = tr.filter(r => r[0] === s); if (!rows.length) continue;
+      const sum = rows.reduce((a, r) => a + r[2], 0), want = new Map(); rows.forEach(r => want.set(r[1], (want.get(r[1]) || 0) + r[2] / sum));
+      const got = new Map();
+      for (let k = 0; k < N; k++) { m.spectrum.clear(); m.atoms[0].s = s; m.atoms[0].t = 48; m.step(0.0001); const to = m.atoms[0].s; got.set(to, (got.get(to) || 0) + 1);
+        if (to !== s) assert.ok(m.spectrum.has((DL.C.HC / (m.levels[s] - m.levels[to])).toFixed(2))); else assert.strictEqual(m.spectrum.size, 0); }
+      for (const [to, p] of want) assert.ok(Math.abs((got.get(to) || 0) / N - p) < 0.04, `${el} ${s}->${to}: ${(got.get(to) || 0) / N} vs ${p}`);
+    }
+  });
+}
+
+// ---- invariants under random settings ----
+test('invariants hold for random voltage/rate/element/tab runs', () => {
+  const rnd = mulberry32(2024);
+  for (let run = 0; run < 12; run++) {
+    const tab = rnd() < 0.5 ? 'single' : 'multiple', el = ELEMENTS[Math.floor(rnd() * 4)];
+    const m = DL.createModel({ tab, element: el, nAtoms: 30, rng: mulberry32(100 + run) });
+    let emitted = 0; m.onEvent = ev => { if (ev.type === 'emit') emitted++; };
+    m.setMode('continuous'); m.setVoltage((rnd() - 0.5) * 60); m.setPct(rnd() * 100);
+    const T = DL.C.TUBE, B = DL.C.PHOTON_BOUNDS;
+    for (let t = 0; t < 4500; t += 3) {
+      m.step(3);
+      // PhET quirk (ported): after a collision the electron's energy is set to KE at the base-sphere contact minus the gap, which is up to
+      // ~12 px further along the field than the electron actually is, so allow the field gain over that distance
+      for (const e of m.electrons) assert.ok(DL.keOf(e.vx) <= 1.0243 * Math.abs(m.V) * (1 + 12 / 430) + 0.05, `electron energy ${DL.keOf(e.vx)} > field gain at V=${m.V}`);
+      // a level change next to a wall can grow the radius by up to 6 px; the overlap is resolved by the next wall check (as in PhET)
+      for (const a of m.atoms) { assert.ok(a.s >= 0 && a.s < m.levels.length); const R = DL.C.R_ATOM + 2 - 6.5;
+        assert.ok(a.x >= T.x0 + R && a.x <= T.x1 - R && a.y >= T.y0 + R && a.y <= T.y1 - R, 'atom left the tube'); }
+      for (const p of m.photons) assert.ok(p.x >= B.x0 && p.x <= B.x1 && p.y >= B.y0 && p.y <= B.y1);
+    }
+    let counted = 0; for (const n of m.spectrum.values()) counted += n;
+    assert.strictEqual(counted, emitted, 'spectrometer count equals emitted photons');
+  }
+});
+
+test('lamp glow colours come from the simulated lines: Na yellow-orange, Ne red-orange, H magenta, Hg blue-ish', () => {
+  require('../js/view.js');
+  const col = k => DL.view.lampColor(k);
+  const [nr, ng, nb] = col('sodium'); assert.ok(nr > 200 && ng > 120 && nb < 60, `sodium ${[nr, ng, nb]}`);
+  const [er, eg, eb] = col('neon'); assert.ok(er === 255 && eg < 200 && eb < 60, `neon ${[er, eg, eb]}`);
+  const [hr, hg, hb] = col('hydrogen'); assert.ok(hr > hg && hb > hg, `hydrogen ${[hr, hg, hb]}`);
+  const [mr, mg, mb] = col('mercury'); assert.ok(mb >= mr * 0.6, `mercury ${[mr, mg, mb]}`);
+});
+
+test('every browser script parses and the i18n tables are complete', () => {
+  const fs = require('fs'), path = require('path'), vm = require('vm');
+  for (const f of fs.readdirSync(path.join(__dirname, '..', 'js')).filter(n => n.endsWith('.js'))) new vm.Script(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), { filename: f });
+  require('../js/i18n.js');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'i18n.js'), 'utf8');
+  const keys = lang => { const from = src.indexOf('    ' + lang + ': {'), to = src.indexOf('\n    }', from); return new Set([...src.slice(from, to).matchAll(/'([a-z]+\.[A-Za-z0-9]+)':/g)].map(m => m[1])); };
+  const en = keys('en'), es = keys('es');
+  for (const k of en) assert.ok(es.has(k), `missing Spanish string: ${k}`);
+  for (const k of es) assert.ok(en.has(k), `Spanish-only string: ${k}`);
 });
 
 console.log(`\n${passed} tests passed`);

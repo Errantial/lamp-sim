@@ -40,7 +40,7 @@
     const m = {
       tab: cfg.tab || 'multiple', V: C.DEFAULT_V, pct: C.DEFAULT_PCT, mode: null,
       elementKey: null, levels: [], choosers: [], configurable: false,
-      atoms: [], electrons: [], photons: [], arrows: [], pulses: [], since: 0, lastHit: null,
+      atoms: [], electrons: [], photons: [], arrows: [], pulses: [], since: 0, lastHit: null, indicatorEnabled: false,
       spectrum: new Map(), specRun: true, heat: 0, nLevels: 2
     };
     m.mode = m.tab === 'single' ? 'single' : 'continuous';
@@ -132,6 +132,7 @@
 
     // equal-likelihood absorption among all reachable higher levels; electron keeps direction, loses exactly the gap
     function collide(e, a, ke) {
+      m.indicatorEnabled = true;                                       // PhET shows the collision indicator after the first electron-atom collision
       const L = m.levels, c = a.s; let n = c + 1;
       while (n < L.length && !(L[n] - L[c] > ke)) n++;
       n--;
@@ -200,7 +201,7 @@
     // One Atom tab: energy (eV, absolute) an electron would have on contact, as PhET's CollisionEnergyIndicator shows
     // (PhET uses |V| * d/(plateDistance-2) with factor 1.0, slightly different from the 1.0243 used by the physics).
     m.collisionIndicator = function () {
-      if (m.tab !== 'single' || !m.atoms.length) return null;
+      if (m.tab !== 'single' || !m.atoms.length || !m.indicatorEnabled) return null;
       const a = m.atoms[0], plateX = m.V > 0 ? C.CATHODE_X : C.ANODE_X, dy = C.PLATE_Y - a.y;
       const r2 = C.R_ATOM * C.R_ATOM - dy * dy;
       if (r2 <= 0) return null;
@@ -211,7 +212,7 @@
 
     m.reset = function () {
       m.V = C.DEFAULT_V; m.pct = C.DEFAULT_PCT; m.mode = m.tab === 'single' ? 'single' : 'continuous';
-      m.electrons = []; m.photons = []; m.arrows = []; m.pulses = []; m.since = 0; m.lastHit = null; m.spectrum.clear();
+      m.electrons = []; m.photons = []; m.arrows = []; m.pulses = []; m.since = 0; m.lastHit = null; m.indicatorEnabled = false; m.spectrum.clear();
       m.atoms = []; m.nLevels = 2; m.setElement('hydrogen'); m.setAtomCount(cfg.nAtoms || C.MAX_ATOMS); recomputeHeat();
     };
 

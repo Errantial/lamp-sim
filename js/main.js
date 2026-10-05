@@ -11,7 +11,7 @@
   const seedParam = new URLSearchParams(location.search).get('seed'), seed = seedParam === null || isNaN(+seedParam) ? null : (+seedParam | 0);
   const rngFor = k => seed === null ? undefined : DL.mulberry32(seed + k);
   const models = { single: DL.createModel({ tab: 'single', rng: rngFor(1) }), multiple: DL.createModel({ tab: 'multiple', nAtoms: C.MAX_ATOMS, rng: rngFor(2) }) };
-  const defaultUi = k => ({ squig: k === 'single', spec: true, slow: false });
+  const defaultUi = k => ({ squig: k === 'single', spec: true, slow: false, paused: false });
   const ui = { single: defaultUi('single'), multiple: defaultUi('multiple') };
   let tab = 'multiple';
   const model = () => models[tab], st = () => ui[tab];
@@ -44,7 +44,22 @@
     $('optSpec').checked = s.spec; $('optSquig').checked = s.squig; $('optSlow').checked = s.slow;
     $('specBtns').hidden = !s.spec; $('sStop').textContent = DL.t(m.specRun ? 'spec.stop' : 'spec.start');
     $('atomsRow').hidden = tab === 'single'; $('natoms').value = m.atoms.length; $('nOut').textContent = m.atoms.length;
+    syncClock();
   }
+
+  // ---- clock controls (pause / play / step), per tab like PhET's per-module clocks ----
+  function syncClock() {
+    const p = st().paused;
+    $('pauseIcon').hidden = p; $('playIcon').hidden = !p;
+    $('clockPause').setAttribute('aria-pressed', p); $('clockPause').dataset.i18nTitle = p ? 'clock.play' : 'clock.pause';
+    $('clockPause').title = DL.t(p ? 'clock.play' : 'clock.pause'); $('clockPause').setAttribute('aria-label', $('clockPause').title);
+    $('clockStep').disabled = !p;
+  }
+  const tickUnits = () => DT * (st().slow ? 0.2 : 1);                      // one clock tick of model time
+  function advance(u) { while (u > 0) { const d = Math.min(3, u); model().step(d); u -= d; } }
+  $('clockPause').onclick = () => { st().paused = !st().paused; syncClock(); };
+  $('clockStep').onclick = () => { if (st().paused) advance(tickUnits()); };
+  $('lampsBtn').onclick = () => { V.drawLamps(V.setup($('lampCanvas'), 440, 270), 440, 270); $('lampsDlg').showModal(); };
 
   function setTab(k) { tab = k; syncUI(); }
   $('tabSingle').onclick = () => setTab('single');
@@ -166,8 +181,7 @@
   let last = performance.now();
   function frame(now) {
     const ms = Math.min(50, now - last); last = now;
-    let u = ms * DT / 40 * (st().slow ? 0.2 : 1);
-    while (u > 0) { const d = Math.min(3, u); model().step(d); u -= d; }
+    if (!st().paused) advance(ms * DT / 40 * (st().slow ? 0.2 : 1));
     V.drawStage(stageCtx, model(), st()); V.drawEnergy(energyCtx, model(), st());
     requestAnimationFrame(frame);
   }

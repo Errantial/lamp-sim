@@ -59,7 +59,15 @@
         <button class="specbtn" id="sReset" type="button" data-i18n="spec.reset">Reset</button>
       </div>
       <div id="tip" role="status"></div>
-    </div></div>
+    </div>
+    <div class="bottombar">
+        <button id="lampsBtn" type="button" class="actualbtn" data-i18n="lamps.button">See How the Lamps Glow</button>
+        <button id="clockPause" type="button" class="roundbtn blue" data-i18n-title="clock.pause" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><g id="pauseIcon"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></g><path id="playIcon" d="M8 5l11 7-11 7z" hidden/></svg></button>
+        <button id="clockStep" type="button" class="roundbtn" data-i18n-title="clock.step" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="3" height="14"/><path d="M10 5l9 7-9 7z"/></svg></button>
+    </div>
+    </div>
 
     <aside class="panel">
       <h2 data-i18n="legend.title">Legend</h2>
@@ -93,6 +101,12 @@
   <h3 id="speedTitle" data-i18n="speed.title">Simulation Speed</h3>
   <div class="row"><label for="dt" data-i18n="speed.label">Time step per tick</label>
     <input type="range" id="dt" min="1" max="15" step="1" value="12"><output id="dtOut">12</output></div>
+  <form method="dialog"><button data-i18n="close">Close</button></form>
+</dialog>
+<dialog id="lampsDlg" aria-labelledby="lampsTitle">
+  <h3 id="lampsTitle" data-i18n="lamps.title">How the lamps glow</h3>
+  <canvas id="lampCanvas" width="440" height="270" role="img" aria-label="Simulated glow colour of each gas"></canvas>
+  <p class="credit" data-i18n="lamps.note"></p>
   <form method="dialog"><button data-i18n="close">Close</button></form>
 </dialog>
 <dialog id="aboutDlg" aria-labelledby="aboutTitle">

@@ -23,6 +23,8 @@
       'energy.axis': 'Energy (eV)', 'energy.ground': 'Ground state', 'energy.collision1': 'Energy at', 'energy.collision2': 'collision',
       'speed.title': 'Simulation Speed', 'speed.label': 'Time step per tick', 'close': 'Close',
       'about.title': 'About', 'about.body': 'An interactive discharge-lamp simulation. Its model, atom data and appearance follow PhET Interactive Simulations\' "Neon Lights & Other Discharge Lamps" (University of Colorado Boulder, GPL-3.0 / CC-BY). This is an independent re-implementation and is not affiliated with PhET.',
+      'lamps.button': 'See How the Lamps Glow', 'lamps.title': 'How the lamps glow', 'lamps.note': 'Approximate colours mixed from the simulated visible lines of each gas. Real lamps also depend on pressure, current and the glass.',
+      'clock.pause': 'Pause', 'clock.play': 'Play', 'clock.step': 'Step',
       'live.excite': 'Atom excited to level {n}', 'live.emit': 'Photon emitted: {w} nanometers, {kind}',
       'kind.uv': 'ultraviolet', 'kind.visible': 'visible light', 'kind.ir': 'infrared'
     },
@@ -45,6 +47,8 @@
       'energy.axis': 'Energía (eV)', 'energy.ground': 'Estado fundamental', 'energy.collision1': 'Energía en', 'energy.collision2': 'la colisión',
       'speed.title': 'Velocidad de simulación', 'speed.label': 'Paso de tiempo por ciclo', 'close': 'Cerrar',
       'about.title': 'Acerca de', 'about.body': 'Simulación interactiva de lámparas de descarga. Su modelo, datos atómicos y apariencia siguen la simulación "Neon Lights & Other Discharge Lamps" de PhET Interactive Simulations (Universidad de Colorado en Boulder, GPL-3.0 / CC-BY). Es una reimplementación independiente sin afiliación con PhET.',
+      'lamps.button': 'Ver cómo brillan las lámparas', 'lamps.title': 'Cómo brillan las lámparas', 'lamps.note': 'Colores aproximados, mezclados a partir de las líneas visibles simuladas de cada gas. Las lámparas reales también dependen de la presión, la corriente y el vidrio.',
+      'clock.pause': 'Pausa', 'clock.play': 'Reanudar', 'clock.step': 'Paso',
       'live.excite': 'Átomo excitado al nivel {n}', 'live.emit': 'Fotón emitido: {w} nanómetros, {kind}',
       'kind.uv': 'ultravioleta', 'kind.visible': 'luz visible', 'kind.ir': 'infrarrojo'
     }
@@ -67,6 +71,7 @@
   // apply translations to elements carrying data-i18n (text) / data-i18n-aria (aria-label) / data-i18n-title
   DL.applyI18n = (rootEl) => {
     (rootEl || document).querySelectorAll('[data-i18n]').forEach(el => { el.textContent = DL.t(el.dataset.i18n); });
+    (rootEl || document).querySelectorAll('[data-i18n-title]').forEach(el => { el.title = DL.t(el.dataset.i18nTitle); el.setAttribute('aria-label', el.title); });
     (rootEl || document).querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', DL.t(el.dataset.i18nAria)));
     document.documentElement.lang = lang;
   };

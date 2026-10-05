@@ -167,11 +167,11 @@
     for (let w = 300; w <= 800; w += 10) {
       const x = specX(w), major = w % 100 === 0;
       c.beginPath(); c.moveTo(x, base + 4); c.lineTo(x, base + (major ? 9 : 6)); c.stroke();
-      if (major) c.fillText(String(w), x, base + 25);
+      if (major) c.fillText(String(w), x, base + 18);
     }
-    c.fillText(DL.t('spec.axis'), specX(550), base + 41);
-    c.textAlign = 'left'; c.fillText(DL.t('spec.farUV'), S.dx + 8, base + 25);
-    c.textAlign = 'right'; c.fillText(DL.t('spec.farIR'), S.dx + S.dw - 18, base + 25);
+    c.fillText(DL.t('spec.axis'), specX(550), base + 33);
+    c.textAlign = 'left'; c.fillText(DL.t('spec.farUV'), S.dx + 8, base + 18);
+    c.textAlign = 'right'; c.fillText(DL.t('spec.farIR'), S.dx + S.dw - 18, base + 18);
 
     const hmax = S.dh - 4;
     for (const mk of V.spectrumLayout(m)) {                               // stacked dots, one per photon (compressed if needed)
@@ -199,6 +199,8 @@
   V.drawEnergy = function (c, m, st) {
     c.clearRect(0, 0, V.ENERGY_W, V.ENERGY_H);
     c.fillStyle = '#fff'; c.fillRect(0, 0, V.ENERGY_W, V.ENERGY_H);
+    const single = m.tab === 'single';                                   // One Atom: short level ticks + "Ground state" beside the badge
+    const x0 = single ? 64 : LINE_X0, x1 = single ? 90 : LINE_X1, bx = single ? 117 : LINE_X1 + 14;
     c.strokeStyle = '#000'; c.fillStyle = '#000'; c.lineWidth = 2;
     c.beginPath(); c.moveTo(E_ORIGIN.x, E_ORIGIN.bottom + 8); c.lineTo(E_ORIGIN.x, 18); c.stroke();               // axis
     c.beginPath(); c.moveTo(E_ORIGIN.x, 10); c.lineTo(E_ORIGIN.x - 5, 20); c.lineTo(E_ORIGIN.x + 5, 20); c.fill();
@@ -206,11 +208,11 @@
 
     const ys = V.energyY(m), cnt = new Array(m.levels.length).fill(0);
     m.levels.forEach((e, i) => {
-      c.strokeStyle = '#000'; c.lineWidth = 2; c.beginPath(); c.moveTo(LINE_X0, ys[i]); c.lineTo(LINE_X1, ys[i]); c.stroke();
-      if (m.configurable && i > 0) { c.fillStyle = '#c33'; c.fillRect(LINE_X1 - 6, ys[i] - 3, 6, 6); }       // drag handle
+      c.strokeStyle = '#000'; c.lineWidth = 2; c.beginPath(); c.moveTo(x0, ys[i]); c.lineTo(x1, ys[i]); c.stroke();
+      if (m.configurable && i > 0) { c.fillStyle = '#c33'; c.fillRect(x1 - 6, ys[i] - 3, 6, 6); }       // drag handle
     });
-    for (const ar of (m.tab === 'single' ? m.arrows : [])) {            // transitions are shown on the One Atom tab only
-      const x = LINE_X0 + 40 + ((ar.hi * 23 + ar.lo * 9) % 160), y1 = ys[ar.hi], y2 = ys[ar.lo];
+    for (const ar of (single ? m.arrows : [])) {                         // transitions are shown on the One Atom tab only
+      const x = x0 + 40 + ((ar.hi * 23 + ar.lo * 9) % 120), y1 = ys[ar.hi], y2 = ys[ar.lo];
       const [ya, yb] = ar.kind === 'absorb' ? [y2, y1] : [y1, y2], col = ar.kind === 'absorb' ? '#444' : V.rgb(ar.w);
       c.globalAlpha = Math.min(1, ar.life / 120); c.strokeStyle = c.fillStyle = col; c.lineWidth = 2.2; c.beginPath();
       if (st.squig && ar.kind === 'emit') { const n = Math.abs(yb - ya); for (let s = 0; s <= n; s++) { const yy = ya + Math.sign(yb - ya) * s; s ? c.lineTo(x + 3.5 * Math.sin(s * 0.5), yy) : c.moveTo(x, yy); } }
@@ -220,24 +222,56 @@
     }
     for (const a of m.atoms) {                                           // atoms rest on their level (30% overlap)
       const i = cnt[a.s]++;
-      sphere(c, LINE_X0 + 9 + i * 8, ys[a.s] - 6, 6, '#a4a4a4', '#2a2a2a');
+      sphere(c, x0 + 9 + i * 8, ys[a.s] - 6, 6, '#a4a4a4', '#2a2a2a');
     }
-    m.levels.forEach((e, i) => badge(c, m, i, LINE_X1 + 14, ys[i]));      // level-number badges
-    c.fillStyle = '#000'; c.font = 'bold 11px Arial'; c.textAlign = 'right'; c.textBaseline = 'alphabetic';
-    if (m.tab === 'single') c.fillText(DL.t('energy.ground'), V.ENERGY_W - 6, ys[0] + 30);
+    m.levels.forEach((e, i) => badge(c, m, i, bx, ys[i]));                // level-number badges
+    if (single) { c.fillStyle = '#000'; c.font = 'bold 12px Arial'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(DL.t('energy.ground'), bx + 22, ys[0]); }
 
-    const ci = m.mode === 'single' ? m.collisionIndicator() : null;      // One Atom: "Energy at collision" indicator
+    const ci = m.mode === 'single' ? m.collisionIndicator() : null;      // One Atom: "Energy at collision" indicator (after the first collision)
     if (ci !== null) {
       const y = Math.max(12, V.energyToY(m, ci));
       c.strokeStyle = c.fillStyle = '#e02020'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(110, y); c.lineTo(28, y); c.stroke();
       c.beginPath(); c.moveTo(25, y); c.lineTo(35, y - 4); c.lineTo(35, y + 4); c.fill();
       V.drawElectron(c, 120, y, 4);
-      c.fillStyle = '#000'; c.font = '10px Arial'; c.textAlign = 'left'; c.fillText(DL.t('energy.collision1'), 128, y - 1); c.fillText(DL.t('energy.collision2'), 128, y + 10);
+      c.fillStyle = '#000'; c.font = '10px Arial'; c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.fillText(DL.t('energy.collision1'), 128, y - 1); c.fillText(DL.t('energy.collision2'), 128, y + 10);
     }
   };
 
   // level-number badge at the right end of each level line (same sprite as the atoms, scaled down)
   function badge(c, m, i, x, y) { V.drawAtomSprite(c, levelFraction(m, i), i, x, y, 0.62); }
+
+  // ---------------- lamp glow preview ----------------
+  // Approximate glow colour of a gas: each visible line (380-750 nm) contributes its colour weighted by its transition weight;
+  // brightness is normalised. Only our own simulated line list is used, no photographs.
+  V.lampColor = function (key) {
+    const el = DL.ELEMENTS[key]; if (!el || !el.levels) return [200, 200, 200];
+    let r = 0, g = 0, b = 0;
+    for (const [from, to, w] of el.transitions) {
+      if (from <= to) continue;
+      const wl = DL.C.HC / (el.levels[from] - el.levels[to]);
+      if (wl < 380 || wl > 750) continue;
+      const [cr, cg, cb] = wavelengthToRGB(wl);
+      r += w * cr; g += w * cg; b += w * cb;
+    }
+    const mx = Math.max(r, g, b) || 1;
+    return [r, g, b].map(x => Math.round(255 * x / mx));
+  };
+
+  V.drawLamps = function (c, w, h) {
+    c.clearRect(0, 0, w, h); c.fillStyle = '#10151c'; c.fillRect(0, 0, w, h);
+    const keys = ['hydrogen', 'mercury', 'sodium', 'neon'], rowH = h / keys.length;
+    keys.forEach((k, i) => {
+      const [r, g, b] = V.lampColor(k), y = rowH * i + rowH / 2, x0 = 130, x1 = w - 24, th = rowH * 0.5;
+      const glow = c.createRadialGradient((x0 + x1) / 2, y, 4, (x0 + x1) / 2, y, (x1 - x0) / 1.6);
+      glow.addColorStop(0, `rgba(${r},${g},${b},.45)`); glow.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      c.fillStyle = glow; c.fillRect(x0 - 30, y - rowH / 2, x1 - x0 + 60, rowH);
+      const tube = c.createLinearGradient(0, y - th / 2, 0, y + th / 2);
+      tube.addColorStop(0, `rgb(${r * .55 | 0},${g * .55 | 0},${b * .55 | 0})`); tube.addColorStop(.5, `rgb(${Math.min(255, r + 50)},${Math.min(255, g + 50)},${Math.min(255, b + 50)})`); tube.addColorStop(1, `rgb(${r * .55 | 0},${g * .55 | 0},${b * .55 | 0})`);
+      c.fillStyle = tube; c.beginPath(); c.roundRect(x0, y - th / 2, x1 - x0, th, th / 2); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1.5; c.stroke();
+      c.fillStyle = '#e8edf3'; c.font = 'bold 14px Arial'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(DL.t('element.' + k), 14, y);
+    });
+  };
 
   V.drawLegendAtom = (c, w, h) => { c.clearRect(0, 0, w, h); V.drawAtomSprite(c, 0, 0, w / 2, h / 2, 0.8); };
   V.drawLegendElectron = (c, w, h) => { c.clearRect(0, 0, w, h); V.drawElectron(c, w / 2, h / 2, 4); };

@@ -77,7 +77,7 @@ Test results (headless, one stationary atom at the tube centre, as PhET's One At
 - **Heater coils:** glow temperature = 255 * current * 1000 / maxCurrent = 255 * (slider fraction) on the emitting plate (red channel, blurred). Fire pulse glows at half scale for the 100-unit delay (our reading of `ElectronPulser`).
 - **Spectrometer layout:** 600 x 100 px display, 80 px margins, 300-800 nm, ticks every 10 nm (labels every 100), `<- far UV` / `far IR ->` labels, Stop/Reset buttons on the housing; counts drawn as stacked dots; far UV/IR counts piled outside the axis.
 - **Energy panel:** white background, black level lines, grey-scale atom balls (30% overlap), level-number badges, min 3 px between levels; panel height scales with the energy range relative to hydrogen.
-- **"Show actual" button:** opens a window with a photograph of real lamps (`actual-lamps.jpg` in the jar). Not reproduced (image licence and no clear UI home).
+- **"Show actual" button / "View Picture of Actual Discharge Lamps":** opens a window with a photograph of real lamps (an image in PhET's jar). **We do not copy PhET's images or exact colours.** Our equivalent is a lamp-glow preview whose colours are computed from each gas's simulated spectrum (`V.lampColor`).
 - **Defaults:** One Atom tab: Single mode, squiggles on. Multiple tab: Continuous 20%, squiggles off. Both start at 23 V, spectrometer hidden (ours defaults to shown because the original spec wanted it visible).
 
 ## More findings (collisions and atom graphics)
@@ -85,6 +85,9 @@ Test results (headless, one stationary atom at the tube centre, as PhET's One At
 - **Atom radius depends on the level**: `r = 15 + 2 + 6 * (E - E0)/(Emax - E0)` px (17 px at ground, 23 px at the top level of hydrogen). It is used for atom-atom/wall contact and for the electron trigger ring (`r + 2`); the electron's *energy* is still measured to the base sphere (`15 + 2`). Ports: `atomRadius()` in `js/model.js`.
 - **Drawing**: constant dark-grey sphere (r = 15) with the level number, over a ring of radius `r` coloured `grey = floor(240 * fraction)` (black at ground), 0.5 px black outline. Heater coils: ~25 tight loops, colour = `(heat, 0, 0)` so they are black until heated. The energy panel shows level badges in the same style; transition arrows and the "Ground state" label appear on the One Atom tab only.
 - **Photons removed** when they leave the model bounds (LaserModel bounding rectangle); ours removes them at the stage edge.
+
+## Project policy
+- Match PhET's *behaviour and data* (model, tables, geometry that affects the physics). Do **not** rip visual assets (images, sprites, sampled exact colours) from PhET; draw our own graphics. Once functionality is close to parity, the focus is expanding and refining the feature set rather than pixel-level replication.
 
 ## Parity status (feature/phet-parity, updated)
 Done: model refactor (`js/model.js`, 9 tests), atom types (H, Hg, Na, Ne, configurable with draggable levels), One Atom + Multiple Atoms tabs, PhET-style layout/theme (title bar, menus, tabs, legend, atom type panel, vertical energy panel with collision indicator, olive spectrometer, battery, copper plates, heater coils, gold wires), editable voltage and % fields, Options menu (simulation speed, language), About dialog, English + Spanish, ARIA live announcements, keyboard-operable menus/controls, responsive stacking, spectrometer hover tooltip, `/lamp-sim` Vercel hosting.

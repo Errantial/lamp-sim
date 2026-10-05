@@ -7,7 +7,10 @@
 
   // ---- state ----
   let DT = 12;                                                     // model time units per 40 ms tick (Options > Simulation Speed)
-  const models = { single: DL.createModel({ tab: 'single' }), multiple: DL.createModel({ tab: 'multiple', nAtoms: C.MAX_ATOMS }) };
+  // ?seed=N makes a run reproducible (each tab gets its own stream derived from N)
+  const seedParam = new URLSearchParams(location.search).get('seed'), seed = seedParam === null || isNaN(+seedParam) ? null : (+seedParam | 0);
+  const rngFor = k => seed === null ? undefined : DL.mulberry32(seed + k);
+  const models = { single: DL.createModel({ tab: 'single', rng: rngFor(1) }), multiple: DL.createModel({ tab: 'multiple', nAtoms: C.MAX_ATOMS, rng: rngFor(2) }) };
   const defaultUi = k => ({ squig: k === 'single', spec: true, slow: false });
   const ui = { single: defaultUi('single'), multiple: defaultUi('multiple') };
   let tab = 'multiple';
@@ -149,7 +152,11 @@
 
   $('mSpeed').onclick = () => { closeMenus(); $('speedDlg').showModal(); };
   $('dt').oninput = e => { DT = +e.target.value; $('dtOut').textContent = DT; };
-  $('mAbout').onclick = () => { closeMenus(); $('aboutDlg').showModal(); };
+  $('mAbout').onclick = () => {
+    closeMenus();
+    if (seed !== null) { $('seedInfo').hidden = false; $('seedInfo').textContent = 'Seed: ' + seed; }
+    $('aboutDlg').showModal();
+  };
   $('mReset').onclick = () => {
     closeMenus(); models.single.reset(); models.multiple.reset();
     ui.single = defaultUi('single'); ui.multiple = defaultUi('multiple'); DT = 12; $('dt').value = 12; $('dtOut').textContent = 12; syncUI();
@@ -167,5 +174,5 @@
 
   applyLang();
   requestAnimationFrame(frame);
-  window.lampSim = { models, ui, get tab() { return tab; }, setTab, syncUI };       // handle for tests / debugging
+  window.lampSim = { seed, models, ui, get tab() { return tab; }, setTab, syncUI };       // handle for tests / debugging
 })();

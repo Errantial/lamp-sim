@@ -13,7 +13,8 @@
     KE_PER_V2: 1e12 * 9.109e-31 / 2 * 6.2414180501810012e18,         // eV per (px/unit)^2  (= 2.843)
     CURRENT_FACTOR: 0.001, PHOTON_SPEED: 0.5, HC: 1239.84, MAX_ATOMS: 30,
     MAX_CURRENT: { single: 25, multiple: 150 },
-    MIN_V: -30, MAX_V: 30, DEFAULT_V: 23, DEFAULT_PCT: 20
+    MIN_V: -30, MAX_V: 30, DEFAULT_V: 23, DEFAULT_PCT: 20,
+    PHOTON_BOUNDS: { x0: 70, x1: 870, y0: -200, y1: 600 }          // LaserModel bounding rectangle (LasersConfig.ORIGIN 120,200 +/- 400)
   };
 
   const keOf = v => v * v * C.KE_PER_V2;
@@ -189,7 +190,8 @@
       }
       for (let i = m.photons.length - 1; i >= 0; i--) {
         const p = m.photons[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.t += dt;
-        if (p.x < 0 || p.x > 710 || p.y < 0 || p.y > 640) m.photons.splice(i, 1);
+        const B = C.PHOTON_BOUNDS;
+        if (p.x < B.x0 || p.x > B.x1 || p.y < B.y0 || p.y > B.y1) m.photons.splice(i, 1);
       }
       for (let i = m.arrows.length - 1; i >= 0; i--) if ((m.arrows[i].life -= dt) <= 0) m.arrows.splice(i, 1);
       if (m.lastHit) m.lastHit.t += dt;
@@ -217,6 +219,16 @@
     m.setAtomCount(cfg.nAtoms || C.MAX_ATOMS);
     recomputeHeat();
     return m;
+  };
+
+  // small fast seedable PRNG (mulberry32) for reproducible runs: ?seed=123
+  DL.mulberry32 = function (a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
   };
 
   DL.keOf = keOf; DL.speedOf = speedOf;

@@ -102,4 +102,17 @@ test('atoms stay inside the tube (wall bounce uses the state radius) and collide
   assert.ok(Math.abs(e1 - e0) / e0 < 1e-9, `kinetic energy changed ${e0} -> ${e1}`);
 });
 
+test('same seed gives an identical run; different seeds differ', () => {
+  const run = seed => { const m = DL.createModel({ tab: 'multiple', nAtoms: 30, rng: DL.mulberry32(seed) }); m.setVoltage(30); m.setPct(100);
+    for (let t = 0; t < 6000; t += 3) m.step(3);
+    return JSON.stringify([m.atoms.map(a => [a.x, a.y, a.s]), m.electrons.map(e => e.x), [...m.spectrum]]); };
+  assert.strictEqual(run(42), run(42)); assert.notStrictEqual(run(42), run(43));
+});
+
+test('photons are removed outside the PhET model bounds (x 70..870, y -200..600), not before', () => {
+  const m = single('hydrogen'); const B = DL.C.PHOTON_BOUNDS;
+  m.photons = [{ x: 700, y: 300, vx: 0, vy: 0, w: 500, t: 0 }, { x: 900, y: 300, vx: 0, vy: 0, w: 500, t: 0 }, { x: 300, y: 650, vx: 0, vy: 0, w: 500, t: 0 }, { x: 300, y: -150, vx: 0, vy: 0, w: 500, t: 0 }];
+  m.step(1); assert.strictEqual(m.photons.length, 2); assert.ok(B.y1 === 600 && B.y0 === -200);
+});
+
 console.log(`\n${passed} tests passed`);

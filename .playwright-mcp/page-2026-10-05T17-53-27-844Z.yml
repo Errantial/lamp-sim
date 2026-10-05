@@ -1,0 +1,155 @@
+- generic [ref=f3e2]:
+  - banner [ref=f3e3]:
+    - link "Skip to Main Content" [ref=f3e4] [cursor=pointer]:
+      - /url: "#main-content"
+    - generic [ref=f3e6]:
+      - heading "PhET Interactive Simulations" [level=1] [ref=f3e7]
+      - link "PhET Home Page" [ref=f3e8] [cursor=pointer]:
+        - /url: /
+      - link [ref=f3e14] [cursor=pointer]:
+        - /url: https://www.colorado.edu/
+        - img "University of Colorado" [ref=f3e16]
+    - navigation "Main navigation" [ref=f3e18]:
+      - list [ref=f3e19]:
+        - listitem [ref=f3e20]:
+          - button "Simulations" [ref=f3e21] [cursor=pointer]
+        - listitem [ref=f3e23]:
+          - button "Studio" [ref=f3e24] [cursor=pointer]
+        - listitem [ref=f3e26]:
+          - button "Teaching" [ref=f3e27] [cursor=pointer]
+        - listitem [ref=f3e29]:
+          - button "Initiatives" [ref=f3e30] [cursor=pointer]
+        - listitem [ref=f3e32]:
+          - link "Donate" [ref=f3e33] [cursor=pointer]:
+            - /url: https://giveto.colorado.edu/phet-interactive-simulations/?a=12190649
+        - listitem [ref=f3e34]:
+          - button "Search the PhET Website" [ref=f3e35] [cursor=pointer]:
+            - img "Search the PhET Website" [ref=f3e36]
+        - listitem [ref=f3e38]:
+          - button "Sign in / Register" [ref=f3e39] [cursor=pointer]:
+            - img "Sign in / Register" [ref=f3e40]
+  - main [ref=f3e42]:
+    - generic [ref=f3e43]:
+      - generic [ref=f3e44]:
+        - heading "Neon Lights & Other Discharge Lamps" [level=1] [ref=f3e45]
+        - generic [ref=f3e46]:
+          - img "Neon Lights & Other Discharge Lamps simulation" [ref=f3e47]
+          - button [ref=f3e48] [cursor=pointer]:
+            - img "Play Simulation" [ref=f3e49]
+      - list [ref=f3e50]:
+        - listitem [ref=f3e51]:
+          - link [ref=f3e52] [cursor=pointer]:
+            - /url: /sims/discharge-lamps/discharge-lamps_en.jar?download
+            - img "Download simulation" [ref=f3e53]
+        - listitem [ref=f3e54]:
+          - button [ref=f3e55] [cursor=pointer]:
+            - img "Display code to embed the simulation" [ref=f3e56]
+        - listitem [ref=f3e57]:
+          - link [ref=f3e58] [cursor=pointer]:
+            - /url: https://classroom.google.com/share?url=https://phet.colorado.edu//sims/cheerpj/discharge-lamps/latest/discharge-lamps.html?simulation=discharge-lamps
+            - img "Add to Google Classroom" [ref=f3e59]
+        - listitem [ref=f3e60]:
+          - link [ref=f3e61] [cursor=pointer]:
+            - /url: https://www.facebook.com/sharer.php?u=https://phet.colorado.edu/en/simulations/discharge-lamps&t=Neon%20Lights%20&%20Other%20Discharge%20Lamps
+            - img "Share on Facebook" [ref=f3e62]
+        - listitem [ref=f3e63]:
+          - link [ref=f3e64] [cursor=pointer]:
+            - /url: https://twitter.com/share?url=https://phet.colorado.edu/en/simulations/discharge-lamps&text=Neon%20Lights%20&%20Other%20Discharge%20Lamps
+            - img "Share on Twitter" [ref=f3e65]
+      - navigation [ref=f3e66]:
+        - status [ref=f3e67]: Navigated to About tab.
+      - generic [ref=f3e76]:
+        - generic [ref=f3e77]:
+          - heading "Explore More" [level=2] [ref=f3e78]
+          - paragraph [ref=f3e79]:
+            - link "Teaching with PhET" [ref=f3e80] [cursor=pointer]:
+              - /url: /en/teaching-resources/teaching-with-phet
+          - paragraph [ref=f3e81]:
+            - link "Quick Tips" [ref=f3e82] [cursor=pointer]:
+              - /url: /en/help-center/quick-tips
+        - generic [ref=f3e83]:
+          - paragraph [ref=f3e84]: PhET is a non-profit committed to providing high quality STEM resources for every classroom. Every donation counts.
+          - link "Donate Now" [ref=f3e85] [cursor=pointer]:
+            - /url: /en/donate
+  - contentinfo [ref=f3e86]:
+    - generic [ref=f3e93]:
+      - generic [ref=f3e94]:
+        - generic [ref=f3e96]:
+          - generic [ref=f3e97]: Choose Language
+          - combobox "Choose Language" [ref=f3e98]:
+            - option "Choose an option..." [disabled]
+            - option "azərbaycan dili"
+            - option "bosanski jezik"
+            - option "čeština"
+            - option "dansk"
+            - option "Deutsch"
+            - option "eesti"
+            - option "English" [selected]
+            - option "español"
+            - option "español (Perú)"
+            - option "euskara"
+            - option "français"
+            - option "galego"
+            - option "Hrvatski"
+            - option "Indonesia"
+            - option "italiano"
+            - option "Kurmancî"
+            - option "lietuvių kalba"
+            - option "magyar"
+            - option "Nederlands"
+            - option "Norsk nynorsk"
+            - option "Norwegian Bokmål"
+            - option "O'zbekcha"
+            - option "Polski"
+            - option "Português"
+            - option "português (Brasil)"
+            - option "Română"
+            - option "slovenčina"
+            - option "suomi"
+            - option "Tiếng Việt"
+            - option "Türkçe"
+            - option "Ελληνικά"
+            - option "беларуская мова"
+            - option "македонски јазик"
+            - option "Монгол хэл"
+            - option "српски језик"
+            - option "Українська"
+            - option "ქართული ენა"
+            - option "العربية (السعودية)"
+            - option "سۆرانی"
+            - option "فارسی"
+            - option "मराठी"
+            - option "ગુજરાતી"
+            - option "සිංහල"
+            - option "ไทย"
+            - option "한국어"
+            - option "中文 (中国)"
+            - option "中文 (台灣)"
+            - option "日本語"
+        - generic [ref=f3e100]:
+          - text: © 2026 University of Colorado. All Rights Reserved.
+          - link "Privacy Policy" [ref=f3e102] [cursor=pointer]:
+            - /url: /en/privacy-policy
+      - generic "Social media" [ref=f3e103]:
+        - link "Facebook" [ref=f3e104] [cursor=pointer]:
+          - /url: https://www.facebook.com/PhETSims/
+        - link "Instagram" [ref=f3e107] [cursor=pointer]:
+          - /url: https://www.instagram.com/phetsims/
+        - link "LinkedIn" [ref=f3e110] [cursor=pointer]:
+          - /url: https://www.linkedin.com/company/phet-interactive-simulations/
+        - link "Pinterest" [ref=f3e113] [cursor=pointer]:
+          - /url: https://www.pinterest.com/phetsims/
+        - link "YouTube" [ref=f3e116] [cursor=pointer]:
+          - /url: https://www.youtube.com/user/PhETInteractiveSims
+        - link "Substack" [ref=f3e119] [cursor=pointer]:
+          - /url: https://phetsims.substack.com/
+    - generic "Sponsors" [ref=f3e127]:
+      - link "Gordon and Betty Moore Foundation" [ref=f3e128] [cursor=pointer]:
+        - /url: https://www.moore.org/
+        - img "Gordon and Betty Moore Foundation" [ref=f3e129]
+      - link "National Science Foundation" [ref=f3e130] [cursor=pointer]:
+        - /url: https://www.nsf.gov/
+        - img "National Science Foundation" [ref=f3e131]
+      - link "William and Flora Hewlett Foundation" [ref=f3e132] [cursor=pointer]:
+        - /url: https://hewlett.org/
+        - img "William and Flora Hewlett Foundation" [ref=f3e133]

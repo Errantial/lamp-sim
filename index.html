@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hydrogen Discharge Lamp</title>
+<style>
+  :root { --bg:#cfe8f7; --panel:#fff; --ink:#1b2a38; --accent:#2a7fd4; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.4 "Segoe UI",Arial,sans-serif; }
+  main { max-width:920px; margin:0 auto; padding:12px 16px 24px; }
+  h1 { font-size:20px; margin:4px 0 8px; }
+  canvas { display:block; width:100%; height:auto; background:#0b1220; border-radius:8px; border:2px solid #345; }
+  .controls { display:flex; flex-wrap:wrap; gap:12px 28px; align-items:center; background:var(--panel);
+    border-radius:8px; padding:10px 16px; margin:10px 0; box-shadow:0 1px 4px #0003; }
+  .controls label { display:flex; flex-direction:column; font-weight:600; min-width:230px; flex:1; }
+  .controls output { color:var(--accent); font-weight:700; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  button { font:inherit; font-weight:600; padding:6px 16px; border:0; border-radius:6px; background:var(--accent); color:#fff; cursor:pointer; }
+  .cap { font-size:13px; margin:2px 4px 10px; opacity:.8; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Hydrogen Discharge Lamp</h1>
+  <canvas id="tube" width="900" height="300" aria-label="Discharge tube"></canvas>
+
+  <div class="controls">
+    <label>Battery voltage: <output id="vOut">12.0 V</output>
+      <input id="volt" type="range" min="0" max="20" step="0.1" value="12"></label>
+    <label>Electron production rate: <output id="rOut">6 /s</output>
+      <input id="rate" type="range" min="0" max="20" step="1" value="6"></label>
+    <fieldset style="border:0;padding:0;margin:0"><b>Electron gun:</b><br>
+      <label style="display:inline;font-weight:400;min-width:0"><input type="radio" name="mode" value="single"> Single</label>
+      <label style="display:inline;font-weight:400;min-width:0"><input type="radio" name="mode" value="continuous" checked> Continuous</label>
+      <button id="fire" type="button">Fire electron</button></fieldset>
+    <label style="min-width:0;flex:none;font-weight:400"><span><input id="squig" type="checkbox" checked> Squiggles</span>
+      <span><input id="slow" type="checkbox"> Slow motion</span></label>
+    <button id="pause">Pause</button>
+  </div>
+
+  <canvas id="levels" width="900" height="250" aria-label="Energy level diagram"></canvas>
+  <div class="cap">Excitation thresholds: 10.2 eV (n=1→2), 12.09 eV (n=1→3). Above 13.6 eV an electron can ionize the atom. Excitation is probabilistic and rises with energy above threshold.</div>
+  <canvas id="spec" width="900" height="220" aria-label="Spectrometer"></canvas>
+  <div class="controls" style="margin-top:8px"><button id="sStop">Stop spectrometer</button><button id="sReset">Reset spectrometer</button></div>
+</main>
+
+<script>
+"use strict";
+// ---------- constants ----------
+const E_LEVEL = {0:0, 1:-13.6, 2:-3.4, 3:-1.5};      // eV (n=0 = ionized)
+const K_SPD = 70;                                    // px/s per sqrt(eV): v = K_SPD*sqrt(KE)
+const IONIZE_E = 13.6, ION_PAUSE = 1.0;
+// 3→1 vs 3→2 branching from 3p decay rates (1.67e8 vs 2.25e7 /s)
+const P_3_TO_1 = 0.88;
+// impact-excitation probability per collision: pmax * sqrt(1 - T/E) above threshold T
+const P_MAX = {2:0.9, 3:0.35, 0:0.3};
+const N_ATOMS = 10;
+const TUBE = {x0:80, x1:820, y0:40, y1:260};        // glass interior (px)
+const TUBE_L = TUBE.x1 - TUBE.x0;
+const R_ATOM = 16, EXCITE_PAUSE = 0.7, PHOTON_SPEED = 240;
+const HC = 1239.84;                                  // eV·nm
+const wl = (hi, lo) => hi === 3 && lo === 2 ? 656.3 : HC / (E_LEVEL[hi] - E_LEVEL[lo]);   // nm (H-alpha exact; rounded levels give 652.5)
+const rand = (a, b) => a + Math.random() * (b - a);
+
+// ---------- state ----------
+const S = { V:12, rate:6, paused:false, mode:'continuous', squig:true, slow:false, specStop:false, atoms:[], electrons:[], photons:[], arrows:[], spectrum:new Map(), acc:0 };
+window.sim = S;
+
+for (let i = 0; i < N_ATOMS; i++) {
+  const a = rand(0, 6.283), sp = rand(25, 55);
+  S.atoms.push({ x:rand(TUBE.x0+60, TUBE.x1-60), y:rand(TUBE.y0+30, TUBE.y1-30),
+                 vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, n:1, timer:0 });
+}
+
+// ---------- colour mapping ----------
+function wavelengthToRGB(w) {                        // visible 380–700 nm; UV → violet
+  if (w < 380) return [167, 139, 250];
+  let r = 0, g = 0, b = 0;
+  if (w < 440) { r = (440-w)/60; b = 1; }
+  else if (w < 490) { g = (w-440)/50; b = 1; }
+  else if (w < 510) { g = 1; b = (510-w)/20; }
+  else if (w < 580) { r = (w-510)/70; g = 1; }
+  else if (w < 645) { r = 1; g = (645-w)/65; }
+  else { r = 1; }
+  return [r, g, b].map(c => Math.round(255 * c));
+}
+const rgb = w => { const c = wavelengthToRGB(w); return `rgb(${c})`; };
+
+// ---------- physics ----------
+function spawnElectron(x = TUBE.x0+10, y = rand(TUBE.y0+12, TUBE.y1-12), ke = 0.3, a = rand(-0.5, 0.5)) {
+  const v = K_SPD * Math.sqrt(ke);
+  S.electrons.push({ x, y, vx:v*Math.cos(a), vy:v*Math.sin(a), cool:0.2 });
+}
+const keOf = e => (e.vx*e.vx + e.vy*e.vy) / (K_SPD*K_SPD);
+function setDir(e, ke, a) { const v = K_SPD*Math.sqrt(ke); e.vx = v*Math.cos(a); e.vy = v*Math.sin(a); }
+
+function recordPhoton(w) { if (S.specStop) return; S.spectrum.set(w, (S.spectrum.get(w) || 0) + 1); }
+
+function emitPhoton(atom, hi, lo) {
+  const w = wl(hi, lo), a = rand(0, 6.283);
+  S.photons.push({ x:atom.x, y:atom.y, vx:Math.cos(a)*PHOTON_SPEED, vy:Math.sin(a)*PHOTON_SPEED, w, t:0 });
+  S.arrows.push({ hi, lo, w, life:1.2, kind:'emit' });
+  recordPhoton(w);
+}
+
+// exponential lifetimes, slowed ~1e8x so the pause is visible (min 0.15 s)
+const lifetime = mean => Math.max(0.15, -mean * Math.log(1 - Math.random()));
+
+function deexcite(atom) {                            // called when pause ends
+  if (atom.n === 0) { atom.n = 1; return; }          // ion recaptures its electron
+  if (atom.n === 3) {
+    if (Math.random() > P_3_TO_1) { emitPhoton(atom, 3, 2); atom.n = 2; atom.timer = lifetime(0.5); }  // Balmer (red)
+    else { emitPhoton(atom, 3, 1); atom.n = 1; }                                        // UV
+  } else if (atom.n === 2) { emitPhoton(atom, 2, 1); atom.n = 1; }                      // UV
+}
+
+function collide(e, atom) {
+  const E = keOf(e); e.cool = 0.2;
+  // candidate inelastic channels, each with its own energy-dependent probability
+  const T = {2:E_LEVEL[2]-E_LEVEL[1], 3:E_LEVEL[3]-E_LEVEL[1], 0:IONIZE_E};
+  let hit = null;
+  for (const n of [0, 3, 2]) {                        // ionization first, then n=3, then n=2
+    if (E >= T[n] && Math.random() < P_MAX[n] * Math.sqrt(1 - T[n]/E)) { hit = n; break; }
+  }
+  if (hit === null) { setDir(e, E, rand(0, 6.283)); return; }   // elastic scatter (no energy loss)
+  const left = E - T[hit];
+  atom.n = hit;
+  atom.timer = hit === 0 ? ION_PAUSE : lifetime(EXCITE_PAUSE);
+  S.arrows.push({ hi:hit, lo:1, w:0, life:0.8, kind:'absorb' });
+  if (hit === 0) {                                    // ionization: leftover energy shared by two free electrons
+    setDir(e, left/2, rand(-1.2, 1.2));
+    spawnElectron(atom.x, atom.y, left/2, rand(-1.2, 1.2));
+  } else setDir(e, left, rand(-1.2, 1.2));
+}
+
+function step(dt) {
+  // electron production (Poisson-ish)
+  if (S.mode === 'continuous') S.acc += S.rate * dt;
+  while (S.acc >= 1) { S.acc -= 1; spawnElectron(); }
+
+  // atoms: random motion, frozen while excited
+  for (const a of S.atoms) {
+    if (a.timer > 0) { a.timer -= dt; if (a.timer <= 0) deexcite(a); continue; }
+    a.vx += rand(-60, 60) * dt; a.vy += rand(-60, 60) * dt;
+    const sp = Math.hypot(a.vx, a.vy);
+    if (sp > 70) { a.vx *= 70/sp; a.vy *= 70/sp; }
+    if (sp < 20) { a.vx *= 1.2; a.vy *= 1.2; }
+    a.x += a.vx*dt; a.y += a.vy*dt;
+    if (a.x < TUBE.x0+R_ATOM) { a.x = TUBE.x0+R_ATOM; a.vx = Math.abs(a.vx); }
+    if (a.x > TUBE.x1-R_ATOM) { a.x = TUBE.x1-R_ATOM; a.vx = -Math.abs(a.vx); }
+    if (a.y < TUBE.y0+R_ATOM) { a.y = TUBE.y0+R_ATOM; a.vy = Math.abs(a.vy); }
+    if (a.y > TUBE.y1-R_ATOM) { a.y = TUBE.y1-R_ATOM; a.vy = -Math.abs(a.vy); }
+  }
+
+  // electrons: constant force F = V/L → a = K²·V/(2L); KE follows from speed
+  const acc = K_SPD*K_SPD * S.V / TUBE_L / 2;
+  for (let i = S.electrons.length - 1; i >= 0; i--) {
+    const e = S.electrons[i];
+    e.vx += acc * dt;
+    e.x += e.vx*dt; e.y += e.vy*dt;
+    if (e.y < TUBE.y0+3) { e.y = TUBE.y0+3; e.vy = Math.abs(e.vy); }
+    if (e.y > TUBE.y1-3) { e.y = TUBE.y1-3; e.vy = -Math.abs(e.vy); }
+    if (e.x >= TUBE.x1 || e.x < TUBE.x0) { S.electrons.splice(i, 1); continue; }  // absorbed by anode / cathode
+    e.cool -= dt;
+    if (e.cool > 0) continue;
+    for (const a of S.atoms) {
+      if (a.n === 1 && Math.hypot(a.x-e.x, a.y-e.y) < R_ATOM + 3) { collide(e, a); break; }
+    }
+  }
+
+  // photons
+  for (let i = S.photons.length - 1; i >= 0; i--) {
+    const p = S.photons[i];
+    p.x += p.vx*dt; p.y += p.vy*dt; p.t += dt;
+    if (p.x < -20 || p.x > 920 || p.y < -20 || p.y > 320 || p.t > 3) S.photons.splice(i, 1);
+  }
+  for (let i = S.arrows.length - 1; i >= 0; i--) if ((S.arrows[i].life -= dt) <= 0) S.arrows.splice(i, 1);
+
+  }
+
+// ---------- drawing: tube ----------
+const tubeCv = document.getElementById('tube'), tc = tubeCv.getContext('2d');
+
+function drawAtom(c, a) {                             // numbered sphere; bigger + halo when excited
+  const r = a.n === 0 ? 10 : R_ATOM * (0.85 + 0.2 * a.n);
+  if (a.n !== 1) {
+    const glow = a.n === 0 ? '255,80,80' : a.n === 2 ? '255,200,90' : '255,255,160';
+    const g = c.createRadialGradient(a.x, a.y, r, a.x, a.y, r + 14);
+    g.addColorStop(0, `rgba(${glow},.85)`); g.addColorStop(1, `rgba(${glow},0)`);
+    c.fillStyle = g; c.beginPath(); c.arc(a.x, a.y, r + 14, 0, 6.283); c.fill();
+  }
+  const g = c.createRadialGradient(a.x - r/3, a.y - r/3, 2, a.x, a.y, r);
+  g.addColorStop(0, a.n === 0 ? '#ff9a9a' : '#e8e8e8'); g.addColorStop(1, a.n === 0 ? '#b22' : '#555');
+  c.fillStyle = g; c.strokeStyle = '#111'; c.lineWidth = 2;
+  c.beginPath(); c.arc(a.x, a.y, r, 0, 6.283); c.fill(); c.stroke();
+  c.fillStyle = a.n === 0 ? '#fff' : '#000'; c.font = 'bold 14px Segoe UI'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(a.n ? a.n : '+', a.x, a.y + 1);
+}
+
+function drawTube() {
+  const c = tc; c.clearRect(0, 0, 900, 300);
+  // wires + battery
+  c.strokeStyle = '#9ab'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(TUBE.x0-8, 150); c.lineTo(30, 150); c.lineTo(30, 285); c.lineTo(400, 285);
+  c.moveTo(500, 285); c.lineTo(870, 285); c.lineTo(870, 150); c.lineTo(TUBE.x1+8, 150); c.stroke();
+  c.fillStyle = '#9ab'; c.fillRect(400, 270, 5, 30); c.fillRect(420, 276, 4, 18);
+  c.fillRect(436, 270, 5, 30); c.fillRect(456, 276, 4, 18); c.fillRect(472, 270, 5, 30);
+  c.fillStyle = '#fff'; c.font = 'bold 13px Segoe UI'; c.textAlign = 'center';
+  c.fillText(S.V.toFixed(1) + ' V', 450, 262 + 0);
+  c.fillText('− cathode', 50, 30); c.fillText('anode +', 850, 30);
+  // glass tube
+  const gr = c.createLinearGradient(0, TUBE.y0, 0, TUBE.y1);
+  gr.addColorStop(0, 'rgba(180,220,255,.20)'); gr.addColorStop(.5, 'rgba(180,220,255,.05)'); gr.addColorStop(1, 'rgba(180,220,255,.18)');
+  c.fillStyle = gr; c.strokeStyle = 'rgba(190,225,255,.8)'; c.lineWidth = 4;
+  c.beginPath(); c.roundRect(TUBE.x0-6, TUBE.y0-6, TUBE_L+12, TUBE.y1-TUBE.y0+12, 26); c.fill(); c.stroke();
+  // electrodes
+  c.fillStyle = '#4a90e2'; c.fillRect(TUBE.x0-6, TUBE.y0+8, 8, TUBE.y1-TUBE.y0-16);
+  c.fillStyle = '#e25b4a'; c.fillRect(TUBE.x1-2, TUBE.y0+8, 8, TUBE.y1-TUBE.y0-16);
+
+  for (const a of S.atoms) drawAtom(c, a);
+
+  for (const e of S.electrons) {                      // electrons (brighter = more energetic)
+    c.fillStyle = `hsl(210,100%,${55 + Math.min(keOf(e), 15)*2}%)`;
+    c.beginPath(); c.arc(e.x, e.y, 3, 0, 6.283); c.fill();
+    c.fillStyle = '#fff'; c.font = '9px Segoe UI'; c.fillText('−', e.x, e.y + 3);
+  }
+  for (const p of S.photons) {                        // photons: wavy trail
+    const col = rgb(p.w), uv = p.w < 380, ang = Math.atan2(p.vy, p.vx);
+    if (!S.squig) {                                   // sparkle
+      c.save(); c.translate(p.x, p.y); c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 12;
+      c.beginPath();
+      for (let k = 0; k < 8; k++) { const rr = k % 2 ? 2.5 : 7, th = k * Math.PI / 4; c.lineTo(rr*Math.cos(th), rr*Math.sin(th)); }
+      c.closePath(); c.fill(); c.restore(); continue;
+    }
+    c.save(); c.translate(p.x, p.y); c.rotate(ang);
+    c.strokeStyle = col; c.lineWidth = 2; c.shadowColor = col; c.shadowBlur = 10;
+    if (uv) c.setLineDash([3, 3]);
+    c.beginPath();
+    for (let s = 0; s <= 22; s++) { const x = -s, y = 4 * Math.sin(s * (uv ? 1.2 : 0.5) + p.t*30); s ? c.lineTo(x, y) : c.moveTo(x, y); }
+    c.stroke(); c.restore();
+  }
+}
+
+// ---------- drawing: energy levels ----------
+const lvCv = document.getElementById('levels'), lc = lvCv.getContext('2d');
+const eY = E => 30 + (1 - E) / 15 * 190;              // E in [-14, 1] → y
+
+function drawLevels() {
+  const c = lc; c.clearRect(0, 0, 900, 250);
+  const X0 = 130, X1 = 520;
+  c.font = '13px Segoe UI'; c.textBaseline = 'middle';
+  c.fillStyle = '#9ab'; c.textAlign = 'center'; c.fillText('Hydrogen energy levels', 325, 12);
+  const defs = [[1,'n = 1  (-13.6 eV)'],[2,'n = 2  (-3.4 eV)'],[3,'n = 3  (-1.5 eV)'],[0,'ionized (0 eV)']];
+  for (const [n, label] of defs) {
+    const E = n ? E_LEVEL[n] : 0, y = eY(E);
+    c.strokeStyle = n ? '#8fb8ff' : '#778'; c.lineWidth = 2; c.setLineDash(n ? [] : [6, 5]);
+    c.beginPath(); c.moveTo(X0, y); c.lineTo(X1, y); c.stroke(); c.setLineDash([]);
+    c.fillStyle = '#dde'; c.textAlign = 'right'; c.fillText(label, X0 - 8, y);
+  }
+  // electron kinetic energy available (relative to ground state)
+  const keE = Math.min(-13.6 + S.V, 0.8), yk = eY(keE);
+  c.strokeStyle = '#ffb74d'; c.setLineDash([3, 4]); c.beginPath(); c.moveTo(X0, yk); c.lineTo(X1, yk); c.stroke(); c.setLineDash([]);
+  c.fillStyle = '#ffb74d'; c.textAlign = 'left'; c.fillText(`electron energy ${S.V.toFixed(1)} eV`, X1 + 10, yk);
+
+  // transition arrows
+  for (const ar of S.arrows) {
+    const x = ar.kind === 'absorb' ? X0 + 60 + (ar.hi === 0 ? 3 : ar.hi - 2) * 40 : X0 + 200 + (ar.hi - ar.lo) * 40 + (ar.lo - 1) * 20;
+    const y1 = eY(E_LEVEL[ar.lo]), y2 = eY(E_LEVEL[ar.hi]);
+    const [ys, ye] = ar.kind === 'absorb' ? [y1, y2] : [y2, y1];
+    c.globalAlpha = Math.min(1, ar.life * 1.5);
+    c.strokeStyle = c.fillStyle = ar.kind === 'absorb' ? '#fff' : rgb(ar.w); c.lineWidth = 3;
+    c.beginPath(); c.moveTo(x, ys); c.lineTo(x, ye); c.stroke();
+    const d = ye > ys ? 1 : -1;
+    c.beginPath(); c.moveTo(x, ye); c.lineTo(x - 6, ye - 10*d); c.lineTo(x + 6, ye - 10*d); c.fill();
+    c.globalAlpha = 1;
+  }
+  // atoms sitting on their level
+  const cnt = {0:0, 1:0, 2:0, 3:0};
+  for (const a of S.atoms) {
+    const E = E_LEVEL[a.n], i = cnt[a.n]++;
+    const col = a.n === 0 ? '#ff5050' : a.n === 1 ? '#78a8ff' : a.n === 2 ? '#ffaa3c' : '#5ae68c';
+    c.fillStyle = col; c.beginPath(); c.arc(X0 + 14 + i * 16, eY(E) - 9, 6, 0, 6.283); c.fill();
+  }
+  c.fillStyle = '#dde'; c.textAlign = 'left'; c.font = '13px Segoe UI';
+  c.font = '12px Segoe UI'; c.fillText(`Atoms: n=1: ${cnt[1]}   n=2: ${cnt[2]}   n=3: ${cnt[3]}   ionized: ${cnt[0]}`, 560, 50);
+}
+
+// ---------- drawing: spectrometer ----------
+const spCv = document.getElementById('spec'), sc = spCv.getContext('2d');
+const W0 = 300, W1 = 800, PX0 = 120, PX1 = 870, PY0 = 25, PY1 = 165, FUV_X = 70;
+const wx = w => PX0 + (w - W0) / (W1 - W0) * (PX1 - PX0);
+
+function drawSpectrum() {
+  const c = sc; c.clearRect(0, 0, 900, 220);
+  // background: UV (dark violet) then visible gradient
+  c.fillStyle = '#1a1030'; c.fillRect(PX0, PY0, wx(380) - PX0, PY1 - PY0); c.fillRect(FUV_X - 25, PY0, 50, PY1 - PY0);
+  for (let x = wx(380); x <= PX1; x++) {
+    const w = 380 + (x - wx(380)) / (PX1 - wx(380)) * (W1 - 380);
+    c.fillStyle = rgb(w); c.globalAlpha = 0.28; c.fillRect(x, PY0, 1, PY1 - PY0);
+  }
+  c.globalAlpha = 1;
+  c.fillStyle = '#9ab'; c.font = '12px Segoe UI'; c.textAlign = 'center';
+  c.fillText('UV', (PX0 + wx(380)) / 2, PY0 + 12); c.fillText('far UV', FUV_X, PY0 + 12); c.fillText('visible', (wx(380) + PX1) / 2, PY0 + 12);
+  // axis
+  c.strokeStyle = '#9ab'; c.lineWidth = 1; c.beginPath(); c.moveTo(PX0, PY1); c.lineTo(PX1, PY1); c.stroke();
+  for (let w = 300; w <= 800; w += 100) {
+    c.beginPath(); c.moveTo(wx(w), PY1); c.lineTo(wx(w), PY1 + 5); c.stroke();
+    c.fillText(w, wx(w), PY1 + 18);
+  }
+  c.fillText('Wavelength (nm)', 500, PY1 + 52);
+  c.textAlign = 'left'; c.fillText('Spectrometer', 6, 12);
+  // counts accumulate until Reset; each photon = one dot-sized unit (<300 nm piles into the far-UV bin)
+  let fuv = 0, max = 10; const lines = [];
+  for (const [w, v] of S.spectrum) { if (w < W0) fuv += v; else lines.push([w, v]); }
+  max = Math.max(max, fuv, ...lines.map(l => l[1]));
+  const bar = (x, v, w) => {
+    const h = Math.min(1, v / max) * (PY1 - PY0 - 18), col = rgb(w);
+    c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 8; c.fillRect(x - 3, PY1 - h, 6, h); c.shadowBlur = 0;
+    c.fillStyle = '#eef'; c.textAlign = 'center'; c.fillText(Math.round(v), x, PY1 - h - 4);
+  };
+  if (fuv) bar(FUV_X, fuv, 100);
+  for (const [w, v] of lines) { bar(wx(w), v, w); c.fillStyle = '#9ab'; c.fillText(w.toFixed(0) + ' nm', wx(w), PY1 + 30 + 0); }
+}
+
+// ---------- loop & controls ----------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!S.paused) step(S.slow ? dt / 5 : dt);
+  drawTube(); drawLevels(); drawSpectrum();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+const $ = id => document.getElementById(id);
+$('volt').oninput = e => { S.V = +e.target.value; $('vOut').textContent = S.V.toFixed(1) + ' V'; };
+$('rate').oninput = e => { S.rate = +e.target.value; $('rOut').textContent = S.rate + ' /s'; };
+document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = e => { S.mode = e.target.value; });
+$('fire').onclick = () => spawnElectron();
+$('squig').onchange = e => { S.squig = e.target.checked; };
+$('slow').onchange = e => { S.slow = e.target.checked; };
+$('sStop').onclick = e => { S.specStop = !S.specStop; e.target.textContent = S.specStop ? 'Start spectrometer' : 'Stop spectrometer'; };
+$('sReset').onclick = () => S.spectrum.clear();
+$('pause').onclick = e => { S.paused = !S.paused; e.target.textContent = S.paused ? 'Play' : 'Pause'; };
+</script>
+</body>
+</html>

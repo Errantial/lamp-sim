@@ -1,0 +1,16 @@
+- main [ref=e2]:
+  - heading "Hydrogen Discharge Lamp" [level=1] [ref=e3]
+  - generic "Discharge tube" [ref=e4]
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - text: "Battery voltage:"
+      - 'status "Battery voltage: 12" [ref=e7]': 12.0 V
+      - slider [ref=e8]: "12"
+    - generic [ref=e9]:
+      - text: "Electron production rate:"
+      - 'status "Electron production rate: 6" [ref=e10]': 6 /s
+      - slider [ref=e11]: "6"
+    - button "Pause" [ref=e12] [cursor=pointer]
+  - generic "Energy level diagram" [ref=e13]
+  - generic [ref=e14]: "Excitation thresholds: 10.2 eV (n=1→2), 12.09 eV (n=1→3). Electrons lose that energy in an inelastic collision."
+  - generic "Spectrometer" [ref=e15]

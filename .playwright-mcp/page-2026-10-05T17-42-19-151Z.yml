@@ -1,0 +1,16 @@
+- main [ref=f2e2]:
+  - heading "Hydrogen Discharge Lamp" [level=1] [ref=f2e3]
+  - generic "Discharge tube" [ref=f2e4]
+  - generic [ref=f2e5]:
+    - generic [ref=f2e6]:
+      - text: "Battery voltage:"
+      - 'status "Battery voltage: 12" [ref=f2e7]': 12.0 V
+      - slider [ref=f2e8]: "12"
+    - generic [ref=f2e9]:
+      - text: "Electron production rate:"
+      - 'status "Electron production rate: 6" [ref=f2e10]': 6 /s
+      - slider [ref=f2e11]: "6"
+    - button "Pause" [ref=f2e12] [cursor=pointer]
+  - generic "Energy level diagram" [ref=f2e13]
+  - generic [ref=f2e14]: "Excitation thresholds: 10.2 eV (n=1→2), 12.09 eV (n=1→3). Above 13.6 eV an electron can ionize the atom. Excitation is probabilistic and rises with energy above threshold."
+  - generic "Spectrometer" [ref=f2e15]

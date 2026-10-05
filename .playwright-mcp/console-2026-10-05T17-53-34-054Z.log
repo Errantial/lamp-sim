@@ -1,0 +1,8 @@
+[     191ms] [LOG] [javaws.user.language=en, cheerpj.globals.windowInnerWidth=1036, cheerpj.globals.windowInnerHeight=695] @ https://phet.colorado.edu/sims/cheerpj/discharge-lamps/latest/discharge-lamps.html?simulation=discharge-lamps:125
+[     193ms] [LOG] CheerpJ is initializing @ https://cjrt.leaningtech.com/20200409_2/loader.js:2837
+[     196ms] [LOG] analytics sending... @ https://phet.colorado.edu/sims/cheerpj/discharge-lamps/latest/discharge-lamps.html?simulation=discharge-lamps:170
+[     198ms] [LOG] analytics sent @ https://phet.colorado.edu/sims/cheerpj/discharge-lamps/latest/discharge-lamps.html?simulation=discharge-lamps:264
+[    9378ms] [ERROR] Failed to load resource: net::ERR_CERT_COMMON_NAME_INVALID @ https://metrics.leaningtech.com/load:0
+[   12656ms] [LOG] Simulation started... @ https://cjrt.leaningtech.com/20200409_2/cheerpOS.js:1424
+[   12657ms] [LOG] 
+ @ https://cjrt.leaningtech.com/20200409_2/cheerpOS.js:1424

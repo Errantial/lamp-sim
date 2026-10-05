@@ -1,0 +1,78 @@
+/* Layout and look modelled on the PhET Java sim: blue title bar, menu bar, tabs, stage on the left, panel on the right. */
+:root { --blue:#4a86c5; --blue-dark:#2f66a3; --panel-bg:#f4f4f4; --line:#c9d3de; --ink:#16202b; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #e9eef3; color: var(--ink); font: 14px/1.35 Arial, "Segoe UI", sans-serif; }
+#app { max-width: 1080px; margin: 0 auto; background: #fff; border: 1px solid #889; min-height: 100vh; }
+
+.titlebar { background: linear-gradient(#6aa3dd, var(--blue)); color: #fff; font-weight: bold; padding: 4px 10px; font-size: 15px; }
+
+/* menu bar */
+.menubar { display: flex; gap: 2px; background: #f0f0f0; border-bottom: 1px solid #ccc; padding: 0 4px; position: relative; z-index: 20; }
+.menu { position: relative; }
+.menu > button { background: none; border: 0; padding: 4px 10px; font: inherit; cursor: pointer; }
+.menu > button:hover, .menu > button[aria-expanded="true"] { background: #cfe0f3; }
+.menu ul { display: none; position: absolute; left: 0; top: 100%; min-width: 200px; margin: 0; padding: 2px 0; list-style: none; background: #fff; border: 1px solid #999; box-shadow: 2px 3px 6px #0003; }
+.menu ul.open { display: block; }
+.menu li button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 5px 14px; font: inherit; cursor: pointer; }
+.menu li button:hover, .menu li button:focus-visible { background: #cfe0f3; }
+.menu li.sep { border-top: 1px solid #ddd; margin: 3px 0; }
+.menu li .check::before { content: "✓ "; visibility: hidden; }
+.menu li .check.on::before { visibility: visible; }
+
+/* tabs */
+.tabs { display: flex; gap: 2px; padding: 4px 6px 0; background: linear-gradient(#f3f3f3, #e1e8f0); border-bottom: 4px solid var(--blue); }
+.tabs button { font: inherit; font-size: 16px; padding: 5px 18px; border: 1px solid #889; border-bottom: 0; background: #7b9de0; color: #fff; cursor: pointer; border-radius: 6px 6px 0 0; }
+.tabs button[aria-selected="true"] { background: #fff; color: #000; }
+
+/* main layout */
+.main { display: grid; grid-template-columns: minmax(0, 710fr) minmax(250px, 330px); align-items: start; background: linear-gradient(90deg, #fff 68%, var(--panel-bg) 68%); }
+.stagewrap { background: #fff; }
+.stagebox { position: relative; }
+#stage { display: block; width: 100%; height: auto; touch-action: none; }
+.panel { background: var(--panel-bg); padding: 0 8px 12px; border-left: 1px solid #889; align-self: stretch; }
+.panel h2 { font-size: 13px; font-weight: normal; margin: 8px 0 4px; color: #234; border-bottom: 1px solid var(--line); }
+.legend { display: grid; grid-template-columns: 60px 1fr; gap: 4px 12px; align-items: center; padding: 4px 8px; }
+.legend canvas { width: 60px; height: 28px; }
+.atomtype { padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.atomtype select { font: inherit; min-width: 130px; padding: 2px; }
+#levelsRow { display: none; font-size: 13px; align-items: center; gap: 6px; }
+#levelsRow.show { display: flex; }
+#energy { display: block; width: 100%; max-width: 300px; margin: 6px auto; background: #fff; border: 1px solid #aaa; touch-action: none; }
+.options { padding: 4px 10px; display: flex; flex-direction: column; gap: 3px; }
+.options label { display: flex; align-items: center; gap: 6px; }
+.options .atoms-row { flex-direction: column; align-items: stretch; gap: 0; }
+
+/* overlays positioned in stage coordinates (710 x 640) */
+.ov { position: absolute; }
+.battery-ov { left: calc(305 / 710 * 100%); top: calc(30 / 640 * 100%); width: calc(100 / 710 * 100%); }
+.battery-ov input[type=range] { width: 100%; margin: 0; height: 16px; appearance: none; background: transparent; }
+.battery-ov input[type=range]::-webkit-slider-runnable-track { height: 2px; background: #000; }
+.battery-ov input[type=range]::-moz-range-track { height: 2px; background: #000; }
+.battery-ov input[type=range]::-webkit-slider-thumb { appearance: none; width: 22px; height: 14px; margin-top: -6px; border-radius: 3px; background: linear-gradient(#ddd, #888); border: 1px solid #222; }
+.battery-ov input[type=range]::-moz-range-thumb { width: 22px; height: 14px; border-radius: 3px; background: linear-gradient(#ddd, #888); border: 1px solid #222; }
+.battery-ov input[type=text] { display: block; width: 68px; margin: 12px auto 0; text-align: center; font: 13px Arial; border: 1px solid #999; padding: 1px; background: #fff; }
+.epanel { left: calc(147 / 710 * 100%); top: calc(91 / 640 * 100%); width: calc(393 / 710 * 100%); background: #eee; border: 1px solid #888; padding: 4px 10px 6px; font-size: 13px; }
+.epanel .title { text-align: center; font-weight: bold; margin-bottom: 4px; }
+.epanel .row { display: flex; align-items: center; gap: 12px; justify-content: center; }
+.epanel .row.hidden { display: none; }
+.epanel input[type=range] { flex: 1; min-width: 80px; }
+.epanel input[type=text] { width: 46px; text-align: right; }
+.epanel button, .specbtn { font: 12px Arial; padding: 2px 14px; background: linear-gradient(#f8f8f8, #c8c8c8); border: 1px solid #666; border-radius: 3px; cursor: pointer; }
+.specbtns { left: calc(60 / 710 * 100%); top: calc(588 / 640 * 100%); display: flex; gap: 8px; }
+#tip { position: absolute; pointer-events: none; background: #111d; color: #fff; padding: 2px 7px; border-radius: 3px; font-size: 12px; display: none; white-space: nowrap; z-index: 5; }
+
+dialog { border: 1px solid #556; border-radius: 6px; max-width: 420px; padding: 14px 18px; }
+dialog::backdrop { background: #0005; }
+dialog h3 { margin: 0 0 8px; }
+dialog .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+dialog .row input[type=range] { flex: 1; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 3px solid #1a5fd0; outline-offset: 1px; }
+@media (max-width: 760px) {
+  .main { grid-template-columns: 1fr; background: #fff; }
+  .panel { border-left: 0; border-top: 1px solid #889; }
+  .stagewrap { padding-bottom: 120px; }                                    /* room for the panel below the stage */
+  .epanel { top: 100%; left: 0; width: auto; right: 0; margin: 8px; }      /* overlay would cover the tube on small screens */
+  .epanel .row { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }

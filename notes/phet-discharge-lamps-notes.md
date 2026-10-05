@@ -70,10 +70,19 @@ Test results (headless, one stationary atom at the tube centre, as PhET's One At
 | decay n=3 | 49.0% / 51.0% | 48.8% / 51.2% |
 | first excitation at 24.75 V | ~194 units after emission | 192 units |
 
-## Open items (not yet checked)
-- Atom-atom and atom-wall collision details in Multiple Atoms (SphereSphere/SphereBox experts exist; not read).
-- Exact atom radius vs state (view code).
-- Mercury/Sodium/Neon tables and the Configurable atom.
+## Phase 0 findings (view / element code, from the decompiled jar)
+- **Atom tables:** Mercury (9 levels), Sodium (6), Neon (10) copied to `js/elements.js`. Several rows are **self-transitions** (e.g. Hg `(3,3,1.0)`): the atom stays in that level, no photon, and re-rolls after another 48 units (metastable level).
+- **Configurable atom:** starts with 2 levels; defaults ground -13.6, then -9.6, -7.5, -5.4, -3.3, -1.2 (max 6); adding levels spaces new ones toward -0.3 eV. Decay: 50% one level down (or to ground from level 2), otherwise uniform over the levels below that. Levels are draggable (ground assumed fixed in our port - unverified).
+- **Energy-at-collision indicator (One Atom, Single mode):** red line + arrow + electron icon + "Energy at collision" text at height `|V| * d/(plateDistance-2) + E0` where d is the distance from the emitting plate to the atom's contact point; it uses factor 1.0, not the 1.0243 of the physics, so the indicator and the real threshold differ slightly. Hidden when the electron path misses the atom or in Continuous mode.
+- **Heater coils:** glow temperature = 255 * current * 1000 / maxCurrent = 255 * (slider fraction) on the emitting plate (red channel, blurred). Fire pulse glows at half scale for the 100-unit delay (our reading of `ElectronPulser`).
+- **Spectrometer layout:** 600 x 100 px display, 80 px margins, 300-800 nm, ticks every 10 nm (labels every 100), `<- far UV` / `far IR ->` labels, Stop/Reset buttons on the housing; counts drawn as stacked dots; far UV/IR counts piled outside the axis.
+- **Energy panel:** white background, black level lines, grey-scale atom balls (30% overlap), level-number badges, min 3 px between levels; panel height scales with the energy range relative to hydrogen.
+- **"Show actual" button:** opens a window with a photograph of real lamps (`actual-lamps.jpg` in the jar). Not reproduced (image licence and no clear UI home).
+- **Defaults:** One Atom tab: Single mode, squiggles on. Multiple tab: Continuous 20%, squiggles off. Both start at 23 V, spectrometer hidden (ours defaults to shown because the original spec wanted it visible).
+
+## Parity status (feature/phet-parity)
+Done: model refactor (`js/model.js`, 9 tests), atom types (H, Hg, Na, Ne, configurable with draggable levels), One Atom + Multiple Atoms tabs, PhET-style layout/theme (title bar, menus, tabs, legend, atom type panel, vertical energy panel with collision indicator, olive spectrometer, battery, copper plates, heater coils, gold wires), editable voltage and % fields, Options menu (simulation speed, language), About dialog, English + Spanish, ARIA live announcements, keyboard-operable menus/controls, responsive stacking, spectrometer hover tooltip, `/lamp-sim` Vercel hosting.
+Not done / deliberately different: PhET logo and "Show actual" photo; our title/About credit PhET as the source; atom-atom and wall collisions are our own elastic model; ground state is not draggable in the configurable atom; pixel-exact visual diff against PhET (only side-by-side screenshots were compared by eye); full screen-reader audit; more languages.
 
 # Ideas: optimizations, improvements, additions
 

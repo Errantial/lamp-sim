@@ -106,6 +106,7 @@
       m.photons.push({ x: a.x + dx * (C.R_ATOM + 10), y: a.y + dy * (C.R_ATOM + 10), vx: dx * C.PHOTON_SPEED, vy: dy * C.PHOTON_SPEED, w, t: 0 });
       m.arrows.push({ hi, lo, w, life: 250, kind: 'emit' });
       if (m.specRun) { const k = w.toFixed(2); m.spectrum.set(k, (m.spectrum.get(k) || 0) + 1); }
+      if (m.onEvent) m.onEvent({ type: 'emit', w });
     }
 
     function decayTarget(s) {
@@ -135,6 +136,7 @@
         const to = c + 1 + Math.floor(rnd() * (n - c)), gap = L[to] - L[c];
         a.s = to; a.t = 0;
         m.arrows.push({ hi: to, lo: c, w: 0, life: 200, kind: 'absorb' });
+        if (m.onEvent) m.onEvent({ type: 'absorb', n: to + 1 });
         e.vx = Math.sign(e.vx || 1) * speedOf(ke - gap);
       }
     }

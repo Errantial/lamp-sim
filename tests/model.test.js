@@ -244,4 +244,81 @@ test('vercel.json serves the sim at /lamp-sim/ with security and caching headers
   assert.ok(cfg.headers.some(h => /js\|css/.test(h.source) && h.headers.some(x => /immutable/.test(x.value))));
 });
 
+// ---------------- realistic physics ----------------
+const realSingle = (el, seed, opts) => { const m = single(el, seed); m.setRealism(Object.assign({ on: true }, opts)); return m; };
+const excitedFraction = (m, V, shots) => { let n = 0; for (let k = 0; k < shots; k++) if (shoot(m, V, 2500).maxS > 0) n++; return n / shots; };
+
+test('realistic: cross-section shape (zero at threshold, peak 1 at 2x, decreasing 1/x tail)', () => {
+  assert.strictEqual(DL.crossSection(1), 0); assert.strictEqual(DL.crossSection(0.5), 0);
+  assert.ok(Math.abs(DL.crossSection(2) - 1) < 1e-12);
+  assert.ok(DL.crossSection(1.2) < DL.crossSection(1.6) && DL.crossSection(1.6) < DL.crossSection(2));
+  assert.ok(DL.crossSection(4) < DL.crossSection(2) && DL.crossSection(10) < DL.crossSection(4) && DL.crossSection(10) > 0);
+});
+
+test('realistic: excitation near threshold is probabilistic and grows with energy; simple mode is certain', () => {
+  const v0 = thresholdV(Math.min(...DL.ELEMENTS.mercury.levels.slice(1).map(e => e - DL.ELEMENTS.mercury.levels[0])));
+  const real = realSingle('mercury', 13);
+  const lo = excitedFraction(real, v0 * 1.05, 300), hi = excitedFraction(real, v0 * 1.6, 300);
+  assert.ok(lo < 0.3 && lo > 0.03, `just above threshold ${lo}`); assert.ok(hi > 0.6, `well above threshold ${hi}`);
+  assert.strictEqual(excitedFraction(single('mercury', 13), v0 * 1.05, 60), 1, 'simple mode excites with certainty');
+});
+
+test('realistic: dipole-like strengths favour strong transitions over uniform choice', () => {
+  const m = realSingle('hydrogen', 17), hist = [0, 0, 0, 0, 0, 0];
+  for (let k = 0; k < 500; k++) { const r = shoot(m, 30, 400).maxS; hist[r]++; }
+  const excited = hist.slice(1).reduce((a, b) => a + b, 0);
+  assert.ok(excited > 100, `excitations ${excited}`);
+  assert.ok(hist[1] > 0.55 * excited, `n=2 should dominate: ${hist}`);                 // simple mode is uniform (checked elsewhere)
+  assert.ok(hist[1] > hist[2] && hist[2] + hist[3] + hist[4] + hist[5] < hist[1]);
+});
+
+test('realistic: scattering keeps speed and lengthens transit; no electron can climb back to the emitting plate', () => {
+  const m = realSingle('hydrogen', 21, { pressure: 100 }); m.atoms = []; m.setVoltage(0.004); m.setMode('single');
+  m.electrons.push({ x: 340, y: 270, vx: 1.2, vy: 0 });
+  for (let t = 0; t < 600; t += 3) { m.step(3); if (!m.electrons.length) break; }
+  const e = m.electrons[0]; if (e) assert.ok(Math.abs(Math.hypot(e.vx, e.vy) - 1.2) < 0.01, 'speed preserved by elastic scattering');
+  const run = p => { const mm = DL.createModel({ tab: 'multiple', rng: mulberry32(8) }); mm.setRealism({ on: true, pressure: p }); mm.setVoltage(20); mm.setPct(100);
+    for (let t = 0; t < 12000; t += 3) mm.step(3); return mm.stats; };
+  const free = run(0), dense = run(100), transit = s => s.flightTime / Math.max(1, s.arrived);
+  assert.strictEqual(free.returned, 0); assert.strictEqual(dense.returned, 0, 'energy conservation: elastic scattering cannot send an electron back above its starting potential');
+  assert.ok(transit(dense) > 1.15 * transit(free), `mean transit: dense ${transit(dense).toFixed(1)} vs free ${transit(free).toFixed(1)} units`);
+});
+
+test('realistic: temperature sets atom speeds (rms ~ sqrt(T)) and rescales on change', () => {
+  const rms = m => Math.sqrt(m.atoms.reduce((s, a) => s + a.vx * a.vx + a.vy * a.vy, 0) / m.atoms.length);
+  const m = DL.createModel({ tab: 'multiple', nAtoms: 30, rng: mulberry32(3) });
+  m.setRealism({ on: true }); const r300 = rms(m);
+  assert.ok(Math.abs(r300 - DL.C.REAL.SIGMA0 * Math.SQRT2) / (DL.C.REAL.SIGMA0 * Math.SQRT2) < 0.3, `rms at 300 K ${r300}`);
+  m.setRealism({ temp: 1200 }); assert.ok(Math.abs(rms(m) / r300 - 2) < 1e-9, 'quadrupling T doubles the speeds');
+  m.setRealism({ on: false }); assert.ok(m.atoms.every(a => Math.abs(a.vx) <= 0.05 && Math.abs(a.vy) <= 0.05), 'back to PhET start');
+});
+
+test('realistic: lifetimes are exponential with mean 48 x scale; simple mode is fixed', () => {
+  const m = DL.createModel({ tab: 'multiple', rng: mulberry32(4) });
+  assert.strictEqual(m.drawLifetime(), 48);
+  m.setRealism({ on: true, lifeScale: 2 }); let sum = 0, min = Infinity; const N = 6000;
+  for (let i = 0; i < N; i++) { const x = m.drawLifetime(); sum += x; min = Math.min(min, x); }
+  assert.ok(Math.abs(sum / N - 96) / 96 < 0.05, `mean ${sum / N}`); assert.ok(min >= 1);
+});
+
+test('realistic: invariants hold in random runs (exact field-energy bound, atoms and electrons stay in the tube)', () => {
+  const rnd = mulberry32(555);
+  for (let run = 0; run < 10; run++) {
+    const el = ELEMENTS[Math.floor(rnd() * 4)], m = DL.createModel({ tab: 'multiple', element: el, nAtoms: 30, rng: mulberry32(900 + run) });
+    m.setRealism({ on: true, pressure: rnd() * 100, temp: 100 + rnd() * 1500, lifeScale: 0.25 + rnd() * 3.5 });
+    m.setVoltage((rnd() - 0.5) * 60); m.setPct(rnd() * 100);
+    const T = DL.C.TUBE; let emitted = 0; m.onEvent = ev => { if (ev.type === 'emit') emitted++; };
+    for (let t = 0; t < 4500; t += 3) {
+      m.step(3);
+      for (const e of m.electrons) {
+        assert.ok(DL.electronEnergy(e) <= 1.0243 * Math.abs(m.V) + 0.05, `electron energy ${DL.electronEnergy(e)} exceeds the field gain (V=${m.V})`);
+        assert.ok(e.y >= T.y0 && e.y <= T.y1, 'electron left the tube sideways');
+      }
+      for (const a of m.atoms) { const R = DL.C.R_ATOM + 2 - 6.5; assert.ok(a.x >= T.x0 + R && a.x <= T.x1 - R && a.y >= T.y0 + R && a.y <= T.y1 - R); }
+    }
+    let counted = 0; for (const n of m.spectrum.values()) counted += n; assert.strictEqual(counted, emitted);
+    const eff = m.efficiency(); assert.ok(eff.light >= 0 && eff.light <= 1);
+  }
+});
+
 console.log(`\n${passed} tests passed`);

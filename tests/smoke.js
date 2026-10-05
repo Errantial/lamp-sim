@@ -86,6 +86,22 @@ const server = http.createServer((req, res) => {
     await page.click('#statsReset');
     assert.strictEqual(await page.evaluate(() => lampSim.models.multiple.stats.collisions), 0);
 
+    // realistic physics: switch on through the UI, set sliders, run, and restore from the URL
+    await page.goto(base + '?seed=9&v=30&pct=100');
+    await page.waitForFunction(() => window.lampSim);
+    await page.click('#physics > summary');
+    await page.selectOption('#physMode', 'realistic');
+    await page.$eval('#press', el => { el.value = 80; el.dispatchEvent(new Event('input')); });
+    await page.$eval('#temp', el => { el.value = 900; el.dispatchEvent(new Event('input')); });
+    await page.$eval('#life', el => { el.value = 1; el.dispatchEvent(new Event('input')); });
+    const real = await page.evaluate(() => lampSim.models.multiple.realism);
+    assert.deepStrictEqual([real.on, real.pressure, real.temp, real.lifeScale], [true, 80, 900, 2]);
+    await page.waitForFunction(() => lampSim.models.multiple.stats.collisions > 30, null, { timeout: 15000 });
+    assert.ok((await page.evaluate(() => lampSim.setupLink())).includes('physics=realistic'));
+    await page.goto(base + '?physics=realistic&pressure=40&temp=600&life=0.5');
+    await page.waitForFunction(() => window.lampSim);
+    assert.deepStrictEqual(await page.evaluate(() => { const r = lampSim.models.multiple.realism; return [r.on, r.pressure, r.temp, r.lifeScale]; }), [true, 40, 600, 0.5]);
+
     // challenges: identify the gas (levels and names hidden), then find the voltage
     await page.goto(base + '?seed=5');
     await page.waitForFunction(() => window.lampSim);

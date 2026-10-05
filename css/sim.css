@@ -38,6 +38,9 @@ html, body { margin: 0; background: #e9eef3; color: var(--ink); font: 14px/1.35 
 #levelsRow { display: none; font-size: 13px; align-items: center; gap: 6px; }
 #levelsRow.show { display: flex; }
 #energy { display: block; width: 100%; max-width: 300px; margin: 6px auto; background: #fff; border: 1px solid #aaa; touch-action: none; }
+.physrow { display: flex; flex-direction: column; font-size: 13px; margin: 6px 0; }
+.physrow select, .physrow input { width: 100%; }
+.analysis .note { font-size: 12px; opacity: .8; margin: 6px 0 0; }
 .challenge { margin: 8px 2px; padding: 6px 10px 8px; background: #fff7dc; border: 1px solid #d9b84a; border-radius: 4px; font-size: 13px; }
 .challenge h2 { margin: 0 0 4px; border: 0; font-weight: bold; }
 .challenge p { margin: 4px 0; }

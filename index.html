@@ -119,6 +119,17 @@
         <canvas id="eff" width="300" height="96" role="img" aria-label="Share of electron energy converted to light"></canvas>
         <button id="statsReset" type="button" class="specbtn" data-i18n="analysis.reset">Reset statistics</button>
       </details>
+      <details id="physics" class="analysis">
+        <summary data-i18n="phys.title">Physics</summary>
+        <label class="physrow"><span data-i18n="phys.mode">Model</span>
+          <select id="physMode"><option value="simple" data-i18n="phys.simple">Simple (PhET-like)</option><option value="realistic" data-i18n="phys.realistic">Realistic</option></select></label>
+        <div id="physReal" hidden>
+          <label class="physrow"><span><span data-i18n="phys.pressure">Gas pressure</span>: <output id="pressOut">0%</output></span><input id="press" type="range" min="0" max="100" step="1" value="0"></label>
+          <label class="physrow" id="tempRow"><span><span data-i18n="phys.temp">Temperature</span>: <output id="tempOut">300 K</output></span><input id="temp" type="range" min="100" max="1500" step="10" value="300"></label>
+          <label class="physrow"><span><span data-i18n="phys.life">Excited-state lifetime</span>: <output id="lifeOut">×1</output></span><input id="life" type="range" min="-2" max="2" step="0.25" value="0"></label>
+          <p class="note" data-i18n="phys.note"></p>
+        </div>
+      </details>
       <h2 data-i18n="options.title">Options</h2>
       <div class="options">
         <label><input type="checkbox" id="optSpec" checked> <span data-i18n="options.spectrometer">Spectrometer</span></label>

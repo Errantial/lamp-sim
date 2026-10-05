@@ -122,3 +122,12 @@ Not done / deliberately different: PhET logo and "Show actual" photo; our title/
 5. Efficiency panel: fraction of electron energy turned into photons, split visible vs UV vs IR (why real lamps use phosphors).
 6. Challenge/quiz mode ("what voltage first produces H-alpha?"), record/replay, shareable URL state, data export.
 7. i18n and a small automated test suite pinned to the numbers above (21.85 V threshold, 49/51 branching, 192-unit arrival).
+
+## Realistic physics mode (our extension, not PhET)
+Opt-in via the Physics panel (`m.setRealism`, URL `physics=realistic&pressure=&temp=&life=`). **Simple** mode is PhET's model and is unchanged (all earlier tests still pin it). Realistic mode, per electron-atom contact:
+- **Excitation probability** for each reachable level n: `P0 * f(E/gap) * strength(c,n)/max strength`, with `f(x) = 4(x-1)/x^2` (zero at threshold, peak 1 at 2x threshold, ~1/x tail; Born-like shape) and `P0 = 0.7`. At most one level is chosen (in proportion to those probabilities); otherwise the electron passes elastically. `strength` is the summed decay weight of (n -> c) from the element's transition table (a stand-in for oscillator strength); transitions absent from the table get 0.02; the configurable atom uses 1. Energy used is the electron's actual energy at contact (no PhET base-sphere quirk).
+- **Elastic scattering** off the gas: per distance travelled, chance `1 - exp(-d/mfp)` with `mfp = 120 px * 100 / pressure%`; new isotropic direction, same speed (no energy loss, so electrons still can never climb back above their starting potential: `returned` stays 0). Electrons are 2D (`vy`) and reflect off the glass walls.
+- **Temperature**: atom velocity components are Gaussian with sigma `0.0289 * sqrt(T/300)` px/unit (same rms as PhET's uniform start at 300 K); changing T rescales speeds by `sqrt(T'/T)`. The One Atom tab keeps its atom stationary.
+- **Lifetime**: exponential with mean `48 units * scale` (scale 0.25-4) instead of a fixed 48 units.
+- Not yet modelled: ionization/recombination, sublevels with real Einstein coefficients, line broadening, inelastic losses to translational motion.
+All coefficients are modelling choices (documented in `DL.C.REAL`), tuned for plausible behaviour, not fitted to data.

@@ -28,9 +28,10 @@
     }
 
     function clearMystery() { for (const m of Object.values(api.models)) m.mystery = false; }
+    function useSimplePhysics() { for (const m of Object.values(api.models)) m.setRealism({ on: false }); }   // answer keys assume PhET's simple model
 
     function begin() {                                        // set up a fresh round of the current kind
-      state.solved = false; state.hintsUsed = 0; state.total++; say('');
+      state.solved = false; state.hintsUsed = 0; state.total++; say(''); useSimplePhysics();
       if (state.kind === 'gas') {
         clearMystery();
         api.setTab('multiple');

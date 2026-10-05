@@ -14,11 +14,19 @@
     CURRENT_FACTOR: 0.001, PHOTON_SPEED: 0.5, HC: 1239.84, MAX_ATOMS: 30,
     MAX_CURRENT: { single: 25, multiple: 150 },
     MIN_V: -30, MAX_V: 30, DEFAULT_V: 23, DEFAULT_PCT: 20, HIST_BINS: 32,
+    // "Realistic" physics (opt-in; the default "Simple" mode is PhET's model)
+    REAL: { P0: 0.7,                     // peak excitation probability per electron-atom contact (at E = 2 x threshold)
+            MFP_100: 120,                // electron mean free path (px) between elastic collisions at 100% gas pressure
+            SIGMA0: 0.0289,              // atom velocity component std-dev (px/unit) at 300 K (matches PhET's +/-0.05 uniform start)
+            EPS_STRENGTH: 0.02 },        // relative strength of transitions that are not in the dipole table (nearly forbidden)
     PHOTON_BOUNDS: { x0: 70, x1: 870, y0: -200, y1: 600 }          // LaserModel bounding rectangle (LasersConfig.ORIGIN 120,200 +/- 400)
   };
 
   const keOf = v => v * v * C.KE_PER_V2;
   const speedOf = ke => Math.sqrt(ke / C.KE_PER_V2);
+  const electronEnergy = e => (e.vx * e.vx + (e.vy || 0) * (e.vy || 0)) * C.KE_PER_V2;
+  // excitation cross-section shape vs x = E / threshold: zero at threshold, peak (1) at x = 2, ~1/x tail (Born-like)
+  const crossSection = x => x <= 1 ? 0 : 4 * (x - 1) / (x * x);
 
   // cumulative-weight chooser per source level (PhET ProbabilisticChooser, weights normalised)
   function buildChoosers(transitions, nLevels) {
@@ -48,21 +56,39 @@
 
     // running statistics for the analysis panel: electron energy at collision (1 eV bins), energy delivered to electrons,
     // and the energy carried away by photons (UV < 380 nm < visible < 750 nm < IR)
-    m.resetStats = function () { m.stats = { bins: new Array(C.HIST_BINS).fill(0), collisions: 0, excitations: 0, supplied: 0, photons: 0, photonE: { uv: 0, visible: 0, ir: 0 } }; };
+    m.resetStats = function () { m.stats = { bins: new Array(C.HIST_BINS).fill(0), collisions: 0, excitations: 0, supplied: 0, arrived: 0, returned: 0, flightTime: 0, photons: 0, photonE: { uv: 0, visible: 0, ir: 0 } }; };
     m.resetStats();
     m.efficiency = function () {                                      // fractions of the energy given to electrons that left as light
       let supplied = m.stats.supplied;
-      for (const e of m.electrons) supplied += keOf(e.vx) + (e.lost || 0);   // include electrons still in flight
+      for (const e of m.electrons) supplied += electronEnergy(e) + (e.lost || 0);   // include electrons still in flight
       const P = m.stats.photonE, total = P.uv + P.visible + P.ir, f = x => supplied > 0 ? Math.min(1, x / supplied) : 0;
       return { supplied, uv: f(P.uv), visible: f(P.visible), ir: f(P.ir), light: f(total) };
     };
 
     m.random = rnd;                                                  // the model's random stream (seedable), reused by challenges
+
+    // ---- realistic-physics options (see DL.C.REAL); off = PhET's simple model ----
+    const gauss = () => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
+    m.realism = { on: false, pressure: 0, temp: 300, lifeScale: 1 };
+    m.setRealism = function (o) {
+      const R = m.realism, wasOn = R.on, oldT = R.temp, clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+      if (o.on !== undefined) R.on = !!o.on;
+      if (o.pressure !== undefined) R.pressure = clamp(+o.pressure || 0, 0, 100);
+      if (o.temp !== undefined) R.temp = clamp(+o.temp || 300, 50, 2000);
+      if (o.lifeScale !== undefined) R.lifeScale = clamp(+o.lifeScale || 1, 0.25, 4);
+      if (m.tab === 'single') return;                                  // the One Atom tab keeps its atom stationary
+      if (R.on && !wasOn) for (const a of m.atoms) { const s = C.REAL.SIGMA0 * Math.sqrt(R.temp / 300); a.vx = gauss() * s; a.vy = gauss() * s; }   // Maxwell-Boltzmann
+      else if (!R.on && wasOn) for (const a of m.atoms) { a.vx = (rnd() - 0.5) * 0.1; a.vy = (rnd() - 0.5) * 0.1; }                           // back to PhET's start
+      else if (R.on && R.temp !== oldT) { const f = Math.sqrt(R.temp / oldT); for (const a of m.atoms) { a.vx *= f; a.vy *= f; } }
+    };
+    // time an excited atom waits before decaying: fixed in PhET's model, exponential in realistic mode
+    m.drawLifetime = () => m.realism.on ? Math.max(1, -Math.log(1 - rnd()) * C.LIFETIME * m.realism.lifeScale) : C.LIFETIME;
+    function setState(a, s) { a.s = s; a.t = 0; a.tau = s > 0 ? m.drawLifetime() : C.LIFETIME; }
     const accel = () => m.V * C.ACC_K;
     // fraction of the way from ground to the highest level (drives atom ring size and grey level)
     m.levelFraction = s => { const L = m.levels, hi = L[L.length - 1]; return hi > L[0] ? (L[s] - L[0]) / (hi - L[0]) : 0; };
     m.atomRadius = a => C.R_ATOM + 2 + 6 * m.levelFraction(a.s);
-    const newAtom = (x, y, vx, vy) => ({ x, y, vx, vy, s: 0, t: 0 });
+    const newAtom = (x, y, vx, vy) => ({ x, y, vx, vy, s: 0, t: 0, tau: C.LIFETIME });
     m.newAtom = newAtom;
 
     // ---- elements / atoms ----
@@ -71,6 +97,8 @@
       m.elementKey = key; m.configurable = !!el.configurable;
       if (m.configurable) { m.nLevels = m.nLevels || 2; m.levels = DL.configurableLevels(m.nLevels); m.choosers = []; }
       else { m.levels = el.levels.slice(); m.choosers = buildChoosers(el.transitions, m.levels.length); }
+      m.strengthTable = new Map();                                      // dipole-like strength of c <-> n, from the transition weights
+      if (!m.configurable) for (const [from, to, w] of el.transitions) if (from > to) m.strengthTable.set(to * 64 + from, (m.strengthTable.get(to * 64 + from) || 0) + w);
       m.resetAtomsToGround();
       m.electrons = []; m.photons = []; m.arrows = []; m.pulses = []; m.spectrum.clear(); m.lastHit = null; m.resetStats();
     };
@@ -84,7 +112,9 @@
       const lo = m.levels[i - 1] + 0.05, hi = (i + 1 < m.levels.length ? m.levels[i + 1] : -0.3) - 0.05;
       m.levels[i] = Math.max(lo, Math.min(hi, e));
     };
-    m.resetAtomsToGround = function () { for (const a of m.atoms) { a.s = 0; a.t = 0; } };
+    m.resetAtomsToGround = function () { for (const a of m.atoms) { a.s = 0; a.t = 0; a.tau = C.LIFETIME; } };
+    m.strength = (c, n) => m.configurable ? 1 : (m.strengthTable.get(c * 64 + n) || C.REAL.EPS_STRENGTH);
+    m.maxStrength = c => { let mx = C.REAL.EPS_STRENGTH; for (let n = c + 1; n < m.levels.length; n++) mx = Math.max(mx, m.strength(c, n)); return mx; };
 
     function addAtom() {
       const T = C.TUBE, R = C.R_ATOM;
@@ -103,7 +133,7 @@
     function spawnElectron(single) {
       const dir = m.V > 0 ? 1 : -1, px = dir > 0 ? C.CATHODE_X : C.ANODE_X;
       const oneSpot = single || m.tab === 'single';                   // One Atom tab emits from the plate centre only
-      m.electrons.push({ x: px + dir * 2, y: oneSpot ? C.PLATE_Y : C.PLATE_Y - C.PLATE_HALF + rnd() * 2 * C.PLATE_HALF, vx: 0 });
+      m.electrons.push({ x: px + dir * 2, y: oneSpot ? C.PLATE_Y : C.PLATE_Y - C.PLATE_HALF + rnd() * 2 * C.PLATE_HALF, vx: 0, vy: 0 });
     }
     m.spawn = spawnElectron;
     m.rate = () => m.pct / 100 * m.maxCurrent * C.CURRENT_FACTOR;      // electrons per unit (continuous)
@@ -140,12 +170,13 @@
     function decay(a) {
       const to = decayTarget(a.s);
       if (to !== a.s) emitPhoton(a, a.s, to);                          // self-transition: metastable, no photon
-      a.s = to; a.t = 0;
+      setState(a, to);
     }
 
     // equal-likelihood absorption among all reachable higher levels; electron keeps direction, loses exactly the gap
     function collide(e, a, ke) {
       m.indicatorEnabled = true;                                       // PhET shows the collision indicator after the first electron-atom collision
+      if (m.realism.on) return collideRealistic(e, a, ke);
       const L = m.levels, c = a.s; let n = c + 1;
       while (n < L.length && !(L[n] - L[c] > ke)) n++;
       n--;
@@ -153,11 +184,32 @@
       m.stats.collisions++; m.stats.bins[Math.min(C.HIST_BINS - 1, Math.floor(ke))]++;
       if (n > c) {
         const to = c + 1 + Math.floor(rnd() * (n - c)), gap = L[to] - L[c];
-        a.s = to; a.t = 0; m.stats.excitations++; e.lost = (e.lost || 0) + gap;
+        setState(a, to); m.stats.excitations++; e.lost = (e.lost || 0) + gap;
         m.arrows.push({ hi: to, lo: c, w: 0, life: 200, kind: 'absorb' });
         if (m.onEvent) m.onEvent({ type: 'absorb', n: to + 1 });
         e.vx = Math.sign(e.vx || 1) * speedOf(ke - gap);
       }
+    }
+
+    // Realistic contact: each reachable level n is excited with probability P0 * crossSection(E/gap) * strength(c,n)/max strength;
+    // at most one level is chosen (in proportion to those probabilities), otherwise the electron just passes (elastic).
+    function collideRealistic(e, a, ke) {
+      const L = m.levels, c = a.s, smax = m.maxStrength(c), cand = [];
+      m.lastHit = { ke, t: 0 };
+      m.stats.collisions++; m.stats.bins[Math.min(C.HIST_BINS - 1, Math.floor(ke))]++;
+      for (let n = c + 1; n < L.length; n++) {
+        const gap = L[n] - L[c]; if (gap > ke) continue;
+        cand.push([n, gap, Math.min(1, C.REAL.P0 * crossSection(ke / gap) * m.strength(c, n) / smax)]);
+      }
+      if (!cand.length) return;
+      let none = 1, total = 0; for (const [, , p] of cand) { none *= 1 - p; total += p; }
+      if (rnd() >= 1 - none) return;                                   // no excitation this time
+      let r = rnd() * total, k = 0; while (k < cand.length - 1 && (r -= cand[k][2]) > 0) k++;
+      const [to, gap] = cand[k], f = Math.sqrt(Math.max(0, ke - gap) / ke);
+      setState(a, to); m.stats.excitations++; e.lost = (e.lost || 0) + gap;
+      m.arrows.push({ hi: to, lo: c, w: 0, life: 200, kind: 'absorb' });
+      if (m.onEvent) m.onEvent({ type: 'absorb', n: to + 1 });
+      e.vx *= f; e.vy *= f;                                            // keeps its direction, loses exactly the gap
     }
 
     // ---- time stepping (dt <= 3 units) ----
@@ -179,7 +231,7 @@
         if (a.x > T.x1 - R) { a.x = T.x1 - R; a.vx = -Math.abs(a.vx); }
         if (a.y < T.y0 + R) { a.y = T.y0 + R; a.vy = Math.abs(a.vy); }
         if (a.y > T.y1 - R) { a.y = T.y1 - R; a.vy = -Math.abs(a.vy); }
-        if (a.s > 0 && (a.t += dt) >= C.LIFETIME) decay(a);
+        if (a.s > 0 && (a.t += dt) >= (a.tau || C.LIFETIME)) decay(a);
       }
       for (let i = 0; i < A.length; i++) for (let j = i + 1; j < A.length; j++) {   // equal-mass elastic collisions (our model)
         const p = A[i], q = A[j], dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy);
@@ -189,16 +241,30 @@
         }
       }
 
-      const aMag = Math.abs(accel()), baseReach = C.R_ATOM + C.R_E;     // energy is measured to the base sphere, trigger uses the ring
+      const aMag = Math.abs(accel()), baseReach = C.R_ATOM + C.R_E, R = m.realism;   // energy is measured to the base sphere, trigger uses the ring
+      const mfp = R.on && R.pressure > 0 ? C.REAL.MFP_100 * 100 / R.pressure : Infinity;
       for (let i = m.electrons.length - 1; i >= 0; i--) {
-        const e = m.electrons[i], px = e.x, vp = Math.abs(e.vx);
+        const e = m.electrons[i], px = e.x, py = e.y, vp = Math.abs(e.vx);
+        m.stats.flightTime += dt;                                     // total electron-time in the tube (mean transit = flightTime / arrived)
+        if (mfp < Infinity) {                                          // elastic scattering off gas atoms: new random direction, same speed
+          const sp = Math.hypot(e.vx, e.vy);
+          if (sp > 0 && rnd() < 1 - Math.exp(-sp * dt / mfp)) { const th = rnd() * 2 * Math.PI; e.vx = sp * Math.cos(th); e.vy = sp * Math.sin(th); }
+        }
         e.x += e.vx * dt + 0.5 * accel() * dt * dt; e.vx += accel() * dt;   // exact constant-acceleration step
-        if (e.x > C.ANODE_X || e.x < C.CATHODE_X) { m.stats.supplied += keOf(e.vx) + (e.lost || 0); m.electrons.splice(i, 1); continue; }   // absorbed by the far plate
+        e.y += e.vy * dt;
+        if (e.y < T.y0 + C.R_E) { e.y = 2 * (T.y0 + C.R_E) - e.y; e.vy = Math.abs(e.vy); }                 // glass walls reflect
+        else if (e.y > T.y1 - C.R_E) { e.y = 2 * (T.y1 - C.R_E) - e.y; e.vy = -Math.abs(e.vy); }
+        if (e.x > C.ANODE_X || e.x < C.CATHODE_X) {
+          m.stats.supplied += electronEnergy(e) + (e.lost || 0);
+          if ((e.x > C.ANODE_X) === (m.V > 0)) m.stats.arrived++; else m.stats.returned++;       // far plate vs back to the emitting plate
+          m.electrons.splice(i, 1); continue;                            // absorbed by a plate
+        }
         for (const a of A) {
-          const dPrev = Math.hypot(px - a.x, e.y - a.y), dCur = Math.hypot(e.x - a.x, e.y - a.y);
+          const dPrev = Math.hypot(px - a.x, py - a.y), dCur = Math.hypot(e.x - a.x, e.y - a.y);
           const trigger = m.atomRadius(a) + C.R_E;                    // PhET detects entry into the (state-sized) ring...
           if (dPrev > trigger && dCur <= trigger) {
-            collide(e, a, keOf(Math.sqrt(vp * vp + 2 * aMag * Math.max(0, dPrev - baseReach))));   // ...but energy is KE at the base sphere
+            // simple mode: ...but energy is KE at the base sphere (PhET quirk); realistic mode: the electron's actual energy
+            collide(e, a, R.on ? electronEnergy(e) : keOf(Math.sqrt(vp * vp + 2 * aMag * Math.max(0, dPrev - baseReach))));
             break;
           }
         }
@@ -227,6 +293,7 @@
     m.reset = function () {
       m.V = C.DEFAULT_V; m.pct = C.DEFAULT_PCT; m.mode = m.tab === 'single' ? 'single' : 'continuous';
       m.electrons = []; m.photons = []; m.arrows = []; m.pulses = []; m.since = 0; m.lastHit = null; m.indicatorEnabled = false; m.spectrum.clear(); m.resetStats();
+      m.realism = { on: false, pressure: 0, temp: 300, lifeScale: 1 };
       m.atoms = []; m.nLevels = 2; m.setElement('hydrogen'); m.setAtomCount(cfg.nAtoms || C.MAX_ATOMS); recomputeHeat();
     };
 
@@ -261,5 +328,5 @@
     return out;
   };
 
-  DL.keOf = keOf; DL.speedOf = speedOf;
+  DL.keOf = keOf; DL.speedOf = speedOf; DL.electronEnergy = electronEnergy; DL.crossSection = crossSection;
 })(typeof window !== 'undefined' ? window : globalThis);

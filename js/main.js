@@ -29,6 +29,12 @@
     if (num('pct', 0, 100) !== null) m.setPct(num('pct', 0, 100));
     if (params.get('mode') === 'single' || params.get('mode') === 'continuous') m.setMode(params.get('mode'));
     if (num('atoms', 1, C.MAX_ATOMS) !== null && tab === 'multiple') m.setAtomCount(Math.round(num('atoms', 1, C.MAX_ATOMS)));
+    if (params.get('physics') === 'realistic') m.setRealism({ on: true });
+    if (m.realism.on) {
+      if (num('pressure', 0, 100) !== null) m.setRealism({ pressure: num('pressure', 0, 100) });
+      if (num('temp', 50, 2000) !== null) m.setRealism({ temp: num('temp', 50, 2000) });
+      if (num('life', 0.25, 4) !== null) m.setRealism({ lifeScale: num('life', 0.25, 4) });
+    }
     for (const [k, f] of [['lines', 'lines'], ['squig', 'squig'], ['spec', 'spec'], ['slow', 'slow']]) if (flag(k) !== null) s[f] = flag(k);
   }
   function setupLink() {                                         // URL that recreates the active tab's current setup
@@ -36,6 +42,7 @@
     q.set('tab', tab); q.set('element', m.elementKey); q.set('v', m.V.toFixed(2)); q.set('pct', Math.round(m.pct)); q.set('mode', m.mode);
     if (m.configurable) q.set('levels', m.levels.length);
     if (tab === 'multiple') q.set('atoms', m.atoms.length);
+    if (m.realism.on) { q.set('physics', 'realistic'); q.set('pressure', Math.round(m.realism.pressure)); q.set('temp', Math.round(m.realism.temp)); q.set('life', m.realism.lifeScale); }
     q.set('lines', +s.lines); q.set('squig', +s.squig); q.set('spec', +s.spec);
     if (seed !== null) q.set('seed', seed);
     return location.origin + location.pathname + '?' + q.toString();
@@ -74,6 +81,13 @@
     $('optSpec').checked = s.spec; $('optSquig').checked = s.squig; $('optSlow').checked = s.slow; $('optLines').checked = s.lines;
     $('specBtns').hidden = !s.spec; $('sStop').textContent = DL.t(m.specRun ? 'spec.stop' : 'spec.start');
     $('atomsRow').hidden = tab === 'single'; $('natoms').value = m.atoms.length; $('nOut').textContent = m.atoms.length;
+    const R = m.realism;                                           // physics panel
+    $('physMode').value = R.on ? 'realistic' : 'simple'; $('physReal').hidden = !R.on;
+    $('press').value = R.pressure; $('pressOut').textContent = Math.round(R.pressure) + '%';
+    $('temp').value = R.temp; $('tempOut').textContent = Math.round(R.temp) + ' K'; $('tempRow').hidden = tab === 'single';
+    $('life').value = Math.log2(R.lifeScale); $('lifeOut').textContent = '×' + R.lifeScale.toFixed(2).replace(/\.?0+$/, '');
+    const locked = !!(window.lampSim && lampSim.challenge && lampSim.challenge.state.kind);   // challenges are built on the simple model
+    for (const id of ['physMode', 'press', 'temp', 'life']) $(id).disabled = locked;
     syncClock();
   }
 
@@ -114,6 +128,12 @@
   $('pctText').onkeydown = e => { if (e.key === 'Enter') applyPctText(); };
   document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = e => { model().setMode(e.target.value); syncUI(); });
   $('fire').onclick = () => model().fire();
+
+  // ---- physics panel ----
+  $('physMode').onchange = e => { model().setRealism({ on: e.target.value === 'realistic' }); syncUI(); };
+  $('press').oninput = e => { model().setRealism({ pressure: +e.target.value }); $('pressOut').textContent = Math.round(model().realism.pressure) + '%'; };
+  $('temp').oninput = e => { model().setRealism({ temp: +e.target.value }); $('tempOut').textContent = Math.round(model().realism.temp) + ' K'; };
+  $('life').oninput = e => { model().setRealism({ lifeScale: Math.pow(2, +e.target.value) }); syncUI(); };
 
   // ---- atom type ----
   $('element').onchange = e => { model().setElement(e.target.value); syncUI(); };

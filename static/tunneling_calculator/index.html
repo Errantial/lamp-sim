@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Quantum tunneling calculator — PHYS 2170 HW10</title>
+  <style>
+    :root { --ink:#172b3b; --muted:#526675; --blue:#173f68; --line:#d4dee5; --pale:#edf3f8; --red:#a21d2b; --paper:#fff; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:#f3f6f8; font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { width:min(1160px,100%); padding:30px 24px 36px; margin:auto; }
+    header { margin-bottom:22px; }
+    .eyebrow { margin:0 0 5px; color:var(--muted); font-size:.78rem; letter-spacing:.09em; text-transform:uppercase; }
+    h1 { margin:0; font:600 clamp(1.9rem,4vw,2.65rem)/1.15 Georgia,"Times New Roman",serif; letter-spacing:-.025em; }
+    .intro { max-width:80ch; margin:10px 0 0; color:var(--muted); font-size:.95rem; }
+    .workspace { display:grid; grid-template-columns:minmax(265px,.72fr) minmax(0,1.65fr); gap:18px; align-items:start; }
+    .panel { min-width:0; background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:20px; }
+    h2 { margin:0 0 14px; font-size:1.05rem; font-weight:650; }
+    .presets { display:flex; gap:8px; margin-bottom:19px; flex-wrap:wrap; }
+    button,select,input { font:inherit; }
+    button { cursor:pointer; border:1px solid #aebfcb; border-radius:6px; padding:7px 10px; color:var(--blue); background:#fff; line-height:1.25; }
+    button:hover { background:var(--pale); }
+    button[aria-pressed="true"] { background:var(--blue); border-color:var(--blue); color:#fff; }
+    :focus-visible { outline:3px solid #d49817; outline-offset:3px; }
+    .preset { font-size:.86rem; }
+    .field { margin:0 0 15px; }
+    label { display:block; margin-bottom:5px; font-size:.9rem; font-weight:600; }
+    .input-row { display:flex; gap:7px; }
+    input { min-width:0; width:100%; border:1px solid #aebfcb; border-radius:5px; padding:8px; background:#fff; color:var(--ink); font-variant-numeric:tabular-nums; }
+    input[aria-invalid="true"] { border:2px solid var(--red); padding:7px; }
+    select { max-width:105px; border:1px solid #aebfcb; border-radius:5px; padding:7px 5px; color:var(--ink); background:#fff; }
+    .hint { margin:4px 0 0; font-size:.76rem; color:var(--muted); }
+    .error { margin:12px 0 0; padding:10px 12px; border-left:3px solid var(--red); color:#7c1420; background:#fff0f1; font-size:.86rem; }
+    .error[hidden] { display:none; }
+    .input-note { margin:13px 0 0; color:var(--muted); font-size:.8rem; }
+    .plot-heading { display:flex; justify-content:space-between; align-items:start; gap:12px; flex-wrap:wrap; }
+    .plot-heading h2 { margin-bottom:2px; }
+    .plot-subtitle { margin:0 0 14px; color:var(--muted); font-size:.82rem; }
+    .scale-buttons { display:flex; gap:5px; }
+    .scale-buttons button { font-size:.79rem; padding:6px 9px; }
+    .view-control { display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-bottom:7px; color:var(--muted); font-size:.8rem; }
+    .view-control label { display:inline; font-size:.8rem; font-weight:400; margin:0; }
+    .view-control select { min-width:0; max-width:100%; padding:4px 6px; font-size:.8rem; }
+    .chart-wrap { width:100%; min-height:230px; }
+    svg { display:block; width:100%; height:auto; background:#fff; overflow:visible; }
+    .chart-note { min-height:2.4em; margin:7px 0 0; color:var(--muted); font-size:.78rem; }
+    .results { margin-top:17px; padding-top:17px; border-top:1px solid var(--line); }
+    .transmission { margin-bottom:13px; }
+    .result-label { margin:0 0 4px; color:var(--muted); font-size:.77rem; font-weight:600; }
+    .transmission-value { margin:0; font:600 clamp(1.1rem,2.3vw,1.45rem)/1.45 Georgia,"Times New Roman",serif; overflow-wrap:anywhere; }
+    .transmission-alt { margin:3px 0 0; color:var(--muted); font-size:.82rem; overflow-wrap:anywhere; }
+    .metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px 17px; }
+    .metric { min-width:0; }
+    .metric-value { margin:0; font-variant-numeric:tabular-nums; font-size:1rem; overflow-wrap:anywhere; }
+    .metric-detail { margin:2px 0 0; font-size:.75rem; color:var(--muted); }
+    .model-note { margin:15px 0 0; padding:9px 11px; background:var(--pale); color:#385064; font-size:.77rem; border-radius:5px; }
+    .invalid-results { color:var(--muted); padding:30px 0; text-align:center; font-size:.9rem; }
+    .invalid-results[hidden],.valid-results[hidden] { display:none; }
+    .notes { margin-top:18px; }
+    details { border-top:1px solid var(--line); padding-top:13px; }
+    details:first-child { border:0; padding-top:0; }
+    details+details { margin-top:13px; }
+    summary { cursor:pointer; color:var(--blue); font-weight:600; font-size:.9rem; }
+    .notes p,.notes li { font-size:.85rem; }
+    .notes p { margin:10px 0; }
+    .notes ul { padding-left:22px; margin:10px 0 0; }
+    .notes li+li { margin-top:6px; }
+    .equations { display:flex; gap:8px 25px; flex-wrap:wrap; margin:12px 0; font:1.05rem/1.8 Georgia,"Times New Roman",serif; }
+    code { font-size:.85em; background:#f0f3f5; border-radius:3px; padding:1px 4px; }
+    footer { margin-top:15px; font-size:.75rem; color:var(--muted); }
+    sup,sub { line-height:0; }
+    @media(max-width:780px) { .workspace { grid-template-columns:1fr; } main { padding:22px 16px; } .panel { padding:17px; } .input-panel .fields { display:grid; grid-template-columns:1fr 1fr; column-gap:15px; } .input-panel .field { min-width:0; } .input-note { margin-top:0; } }
+    @media(max-width:480px) { .input-panel .fields { grid-template-columns:1fr; } .metrics { gap:13px; } .plot-heading { gap:8px; } .chart-wrap { min-height:180px; } }
+    @media(pointer:coarse) { button,select,input { min-height:44px; } }
+    @media print { body { background:#fff; } main { width:100%; padding:0; } .workspace { grid-template-columns:1fr 2fr; gap:12px; } .panel { padding:12px; } button { border-color:#777; } .notes { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">PHYS 2170 · HW10 · Question 8</p>
+    <h1>Quantum tunneling calculator</h1>
+    <p class="intro">Explore a particle below a rectangular potential barrier. This tool uses the exponential approximation and keeps very small probabilities in logarithmic form.</p>
+  </header>
+  <div class="workspace">
+    <section class="panel input-panel" aria-labelledby="inputs-heading">
+      <h2 id="inputs-heading">Barrier and particle</h2>
+      <div class="presets" aria-label="Example inputs">
+        <button class="preset" id="preset-copper" type="button">Copper electron</button>
+        <button class="preset" id="preset-person" type="button">Person and wall</button>
+      </div>
+      <form id="calculator-form" novalidate>
+        <div class="fields">
+          <div class="field">
+            <label for="mass">Mass, <i>m</i></label>
+            <div class="input-row">
+              <input id="mass" name="mass" type="number" min="0" step="any" value="1" inputmode="decimal" required>
+              <select id="mass-unit" aria-label="Mass unit" data-field="mass"><option value="electron">mₑ</option><option value="kg">kg</option></select>
+            </div>
+            <p class="hint">mₑ is the electron mass.</p>
+          </div>
+          <div class="field">
+            <label for="barrier">Barrier height, <i>V</i><sub>0</sub></label>
+            <div class="input-row">
+              <input id="barrier" name="barrier" type="number" min="0" step="any" value="4.7" inputmode="decimal" required>
+              <select id="barrier-unit" aria-label="Barrier height unit" data-field="barrier"><option value="eV">eV</option><option value="J">J</option></select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="energy">Particle energy, <i>E</i></label>
+            <div class="input-row">
+              <input id="energy" name="energy" type="number" min="0" step="any" value="2.7" inputmode="decimal" required>
+              <select id="energy-unit" aria-label="Particle energy unit" data-field="energy"><option value="eV">eV</option><option value="J">J</option></select>
+            </div>
+            <p class="hint">E and V₀ use the same zero: the incident-region potential.</p>
+          </div>
+          <div class="field">
+            <label for="width">Barrier width, <i>d</i></label>
+            <div class="input-row">
+              <input id="width" name="width" type="number" min="0" step="any" value="0.138" inputmode="decimal" required>
+              <select id="width-unit" aria-label="Barrier width unit" data-field="width"><option value="nm">nm</option><option value="m">m</option></select>
+            </div>
+            <p class="hint">The copper preset sets d = δ.</p>
+          </div>
+        </div>
+        <p class="input-note">Results update as you type. Changing a unit preserves the physical value. Scientific notation such as <code>9.11e-31</code> is accepted.</p>
+        <p id="input-error" class="error" role="status" aria-live="polite" hidden></p>
+      </form>
+    </section>
+    <section class="panel" aria-labelledby="plot-heading">
+      <div class="plot-heading">
+        <div>
+          <h2 id="plot-heading">Density inside the barrier</h2>
+          <p class="plot-subtitle">Entrance-relative density: ρ(x)/ρ(0) = exp(−2κx).</p>
+        </div>
+        <div class="scale-buttons" role="group" aria-label="Vertical plot scale">
+          <button id="scale-linear" type="button" aria-pressed="true">Linear</button>
+          <button id="scale-log" type="button" aria-pressed="false">Log₁₀</button>
+        </div>
+      </div>
+      <div class="view-control">
+        <label for="plot-view">Show</label>
+        <select id="plot-view"><option value="decay">First 5 penetration lengths, up to d</option><option value="full">Full barrier width</option></select>
+      </div>
+      <div id="chart-wrap" class="chart-wrap">
+        <svg id="density-chart" viewBox="0 0 700 280" role="img" aria-labelledby="chart-title chart-description">
+          <title id="chart-title">Decaying density inside the barrier</title>
+          <desc id="chart-description">Enter valid below-barrier inputs to draw the density.</desc>
+        </svg>
+      </div>
+      <p id="chart-note" class="chart-note"></p>
+      <div id="invalid-results" class="invalid-results" hidden>No result is calculated until the inputs describe a valid below-barrier case.</div>
+      <div id="valid-results" class="valid-results">
+        <div class="results">
+          <div class="transmission">
+            <p class="result-label">Estimated transmission probability</p>
+            <p id="transmission-value" class="transmission-value"></p>
+            <p id="transmission-alt" class="transmission-alt"></p>
+          </div>
+          <div class="metrics">
+            <div class="metric"><p class="result-label">Amplitude penetration length, δ = 1/κ</p><p id="penetration-value" class="metric-value"></p><p id="kappa-value" class="metric-detail"></p></div>
+            <div class="metric"><p class="result-label">Natural logarithm, ln T</p><p id="ln-value" class="metric-value"></p><p class="metric-detail">ln T = −2κd</p></div>
+            <div class="metric"><p class="result-label">Base-10 logarithm, log₁₀ T</p><p id="log-value" class="metric-value"></p><p class="metric-detail">Retains probabilities too small for a decimal.</p></div>
+            <div class="metric"><p class="result-label">Mean wait at 1 attempt per second</p><p id="wait-value" class="metric-value"></p><p id="wait-log" class="metric-detail"></p></div>
+          </div>
+          <p class="model-note">Approximation: only the decaying exponential is retained. Exact finite-barrier boundary matching and its transmission prefactor are not included.</p>
+        </div>
+      </div>
+      <p id="calculation-status" class="hint" role="status" aria-live="polite"></p>
+    </section>
+  </div>
+  <section class="panel notes" aria-label="Model and reproduction notes">
+    <details open>
+      <summary>Model and assumptions</summary>
+      <div class="equations" aria-label="Equations used">
+        <span>κ = √[2m(V<sub>0</sub> − E)] / ℏ</span>
+        <span>δ = 1/κ</span>
+        <span>T ≈ exp(−2κd)</span>
+        <span>ρ(x)/ρ(0) = exp(−2κx)</span>
+      </div>
+      <ul>
+        <li>A one-dimensional, constant rectangular barrier, with positive mass and width and 0 &lt; E &lt; V<sub>0</sub>. Zero energy has no incoming flux in this scattering model; values at or above the barrier need a different calculation.</li>
+        <li>Nonrelativistic range: this calculator conservatively requires both E and V<sub>0</sub> − E to be below 1% of mc². This is a chosen applicability limit, not a 1% accuracy guarantee for the transmission estimate.</li>
+        <li>δ is the distance over which the <em>amplitude</em> decreases by e<sup>−1</sup>. The density decreases by e<sup>−2</sup> over that distance; its e-folding length is δ/2.</li>
+        <li>The plotted density is divided by its value at the barrier entrance. It is the decaying-component model inside the barrier, <strong>not a globally normalized wavefunction</strong>.</li>
+        <li>The exponential transmission formula is most useful for strongly attenuating barriers. In particular, the copper preset has κd = 1; its exponential estimate is not an exact finite-barrier transmission calculation.</li>
+        <li>The waiting estimate assumes independent attempts with unchanged probability T. Mean wait = 1/T seconds, using 31,557,600 seconds per year. Applying this single-particle model to a whole person is a formal illustration, not a physical account of macroscopic tunneling.</li>
+      </ul>
+    </details>
+    <details>
+      <summary>Reproduce the calculation</summary>
+      <p>Constants: 1 eV = 1.602176634 × 10<sup>−19</sup> J; ℏ = (6.62607015 × 10<sup>−34</sup> J·s)/(2π); mₑ = 9.1093837139 × 10<sup>−31</sup> kg.</p>
+      <p><strong>Copper electron:</strong> m = mₑ, V<sub>0</sub> = 4.7 eV, E = 2.7 eV, d = δ. These follow the assignment's simplified common energy reference; a real metal's work function is measured from its Fermi level. <strong>Person and wall:</strong> m = 60 kg, V<sub>0</sub> = 25,000 J, E = 187.5 J, d = 0.03 m.</p>
+      <p><strong>Hand-calculation checks:</strong> copper δ = 0.1380214 nm, ln T = −2 at d = δ, and T ≈ 0.1353353. For the person, ln T = −9.8175015 × 10<sup>35</sup> and log₁₀ T = −4.2636867 × 10<sup>35</sup>. These validate the assigned exponential formula, not omitted boundary-matching factors.</p>
+      <p>The implementation first converts all inputs to SI units. It computes ln T directly, and obtains log₁₀ T = ln T / ln 10. For one attempt per second, log₁₀(wait in years) = −log₁₀ T − log₁₀(31,557,600).</p>
+      <p>This HTML file contains the complete interface and calculation code. Open it locally in a browser; it has no external scripts, fonts, network calls, or dependencies. The pure numeric function is exposed as <code>TunnelingCalculator.calculateModel(inputs)</code> for independent checks.</p>
+    </details>
+  </section>
+  <footer>PHYS 2170 HW10 · Exponential approximation · Offline and self-contained</footer>
+</main>
+<script id="calculator-script">
+/* Reproduction prompt: Build an offline rectangular-barrier tunneling calculator
+   using kappa=sqrt(2*m*(V0-E))/hbar, delta=1/kappa, T≈exp(-2*kappa*d),
+   entrance-relative density exp(-2*kappa*x), logarithmic probabilities and
+   waiting times, SI/eV/electron-mass/nm inputs, and the two documented presets.
+   No exact boundary matching, global normalization, or external dependencies. */
+(() => {
+  'use strict';
+  const CONSTANTS = Object.freeze({
+    electronMassKg: 9.1093837139e-31,
+    electronVoltJ: 1.602176634e-19,
+    hbarJs: 6.62607015e-34 / (2 * Math.PI),
+    secondsPerYear: 31557600,
+    speedOfLightMps: 299792458,
+    nonrelativisticEnergyLimit: 0.01
+  });
+  const FACTORS = Object.freeze({
+    mass: { kg: 1, electron: CONSTANTS.electronMassKg },
+    barrier: { J: 1, eV: CONSTANTS.electronVoltJ },
+    energy: { J: 1, eV: CONSTANTS.electronVoltJ },
+    width: { m: 1, nm: 1e-9 }
+  });
+  class InputError extends Error {
+    constructor(field, message) { super(message); this.name = 'InputError'; this.field = field; }
+  }
+  function toSI(input, field, allowZero = false) {
+    const raw = input[field];
+    if ((typeof raw !== 'number' && typeof raw !== 'string') || (typeof raw === 'string' && raw.trim() === '')) {
+      throw new InputError(field, `Enter a number for ${field === 'barrier' ? 'barrier height' : field}.`);
+    }
+    const value = Number(raw);
+    if (!Number.isFinite(value) || (allowZero ? value < 0 : value <= 0)) {
+      throw new InputError(field, `${field === 'barrier' ? 'Barrier height' : field[0].toUpperCase() + field.slice(1)} must be a finite ${allowZero ? 'nonnegative' : 'positive'} number.`);
+    }
+    const unit = input[field + 'Unit'];
+    if (!Object.prototype.hasOwnProperty.call(FACTORS[field], unit)) {
+      throw new InputError(field, `Choose a supported unit for ${field}.`);
+    }
+    const si = value * FACTORS[field][unit];
+    if (!Number.isFinite(si) || (!allowZero && si <= 0) || (value > 0 && si === 0)) {
+      throw new InputError(field, `The ${field} is outside the supported numeric range after unit conversion.`);
+    }
+    return si;
+  }
+  function calculateModel(input) {
+    const massKg = toSI(input, 'mass');
+    const barrierJ = toSI(input, 'barrier');
+    const energyJ = toSI(input, 'energy');
+    const widthM = toSI(input, 'width');
+    if (energyJ >= barrierJ) {
+      throw new InputError('energy', 'E must be below V₀. At or above the barrier, this evanescent exponential model does not apply.');
+    }
+    const gapJ = barrierJ - energyJ;
+    const logEnergyLimit = Math.log(massKg) + 2 * Math.log(CONSTANTS.speedOfLightMps) + Math.log(CONSTANTS.nonrelativisticEnergyLimit);
+    if (Math.log(energyJ) >= logEnergyLimit || Math.log(gapJ) >= logEnergyLimit) {
+      throw new InputError(Math.log(energyJ) >= logEnergyLimit ? 'energy' : 'barrier', 'Outside this nonrelativistic calculator range: E and V₀ − E must each be below 1% of mc². This limit is not a transmission-accuracy guarantee.');
+    }
+    // Logarithmic evaluation avoids overflow in the intermediate product 2*m*gap.
+    const lnKappa = 0.5 * (Math.log(2) + Math.log(massKg) + Math.log(gapJ)) - Math.log(CONSTANTS.hbarJs);
+    const kappaPerM = Math.exp(lnKappa);
+    const penetrationM = Math.exp(-lnKappa);
+    const attenuation = Math.exp(Math.log(2) + lnKappa + Math.log(widthM));
+    if (![kappaPerM, penetrationM, attenuation].every(Number.isFinite) || kappaPerM <= 0 || penetrationM <= 0 || attenuation <= 0) {
+      throw new InputError('width', 'These values exceed the numeric range of this calculator. Use less extreme finite inputs.');
+    }
+    const lnT = -attenuation;
+    const log10T = lnT / Math.LN10;
+    if (!(log10T < 0)) {
+      throw new InputError('width', 'The logarithmic decay is below the supported numeric range. Use a larger positive width.');
+    }
+    const log10WaitYears = -log10T - Math.log10(CONSTANTS.secondsPerYear);
+    return Object.freeze({ massKg, barrierJ, energyJ, gapJ, widthM, kappaPerM, penetrationM, attenuation, lnT, log10T, log10WaitYears });
+  }
+  function log10DensityRatio(model, xM) {
+    if (!Number.isFinite(xM) || xM < 0 || xM > model.widthM * (1 + 1e-12)) {
+      throw new RangeError('Density is defined here only inside the barrier, 0 ≤ x ≤ d.');
+    }
+    return model.log10T * (xM / model.widthM);
+  }
+  function densityRatio(model, xM) {
+    return Math.exp(log10DensityRatio(model, xM) * Math.LN10);
+  }
+  function getPreset(name) {
+    if (name === 'copper') {
+      const gapJ = (4.7 - 2.7) * CONSTANTS.electronVoltJ;
+      const deltaM = CONSTANTS.hbarJs / Math.sqrt(2 * CONSTANTS.electronMassKg * gapJ);
+      return { mass: 1, massUnit: 'electron', barrier: 4.7, barrierUnit: 'eV', energy: 2.7, energyUnit: 'eV', width: deltaM * 1e9, widthUnit: 'nm' };
+    }
+    if (name === 'person') {
+      return { mass: 60, massUnit: 'kg', barrier: 25000, barrierUnit: 'J', energy: 187.5, energyUnit: 'J', width: 0.03, widthUnit: 'm' };
+    }
+    throw new RangeError('Unknown preset.');
+  }
+  const API = Object.freeze({ constants: CONSTANTS, calculateModel, densityRatio, log10DensityRatio, getPreset });
+  globalThis.TunnelingCalculator = API;
+  if (typeof document === 'undefined') return;
+
+  const $ = id => document.getElementById(id);
+  const fields = ['mass', 'barrier', 'energy', 'width'];
+  let model = null;
+  let scale = 'linear';
+  let lastChartWidth = 0;
+  function plain(value, digits = 4) {
+    if (value === 0) return '0';
+    return Number(value.toPrecision(digits)).toString().replace('-', '−');
+  }
+  function numberHTML(value, digits = 4) {
+    if (value === 0) return '0';
+    const magnitude = Math.abs(value);
+    if (magnitude >= 1e5 || magnitude < 1e-3) {
+      const [mantissaText, exponentText] = value.toExponential(digits - 1).split('e');
+      const exponent = Number(exponentText);
+      const mantissa = Number(mantissaText);
+      return `${plain(mantissa, digits)} × 10<sup>${String(exponent).replace('-', '−')}</sup>`;
+    }
+    return plain(value, digits);
+  }
+  function axisText(value, digits = 3) {
+    if (value === 0) return '0';
+    const mag = Math.abs(value);
+    if (mag >= 1e5 || mag < 1e-3) return value.toExponential(digits - 1).replace('e+', 'e').replace('-', '−');
+    return plain(value, digits);
+  }
+  function scaledAxisText(value, fraction, digits = 3) {
+    if (fraction === 0 || value === 0) return '0';
+    if (Math.abs(value) < 1e-300) {
+      const [mantissaText, exponentText] = value.toExponential(digits - 1).split('e');
+      let mantissa = Number(mantissaText) * fraction;
+      let exponent = Number(exponentText);
+      const adjustment = Math.floor(Math.log10(Math.abs(mantissa)));
+      mantissa /= 10 ** adjustment;
+      exponent += adjustment;
+      return `${plain(mantissa, digits)}e${String(exponent).replace('-', '−')}`;
+    }
+    return axisText(value * fraction, digits);
+  }
+  function readInputs() {
+    const input = {};
+    fields.forEach(field => { input[field] = $(field).value.trim(); input[field + 'Unit'] = $(field + '-unit').value; });
+    return input;
+  }
+  function renderResults() {
+    const m = model;
+    if (m.lnT > -700) {
+      $('transmission-value').innerHTML = `T ≈ ${numberHTML(Math.exp(m.lnT), 6)}`;
+      $('transmission-alt').innerHTML = `Exponential form: exp(${numberHTML(m.lnT, 6)}).`;
+    } else {
+      $('transmission-value').innerHTML = `T ≈ exp(${numberHTML(m.lnT, 5)})`;
+      $('transmission-alt').innerHTML = `Equivalently, 10<sup>${numberHTML(m.log10T, 5)}</sup>. This probability is extraordinarily small; it is not zero.`;
+    }
+    const showNm = m.penetrationM >= 1e-12 && m.penetrationM < 1e-6;
+    $('penetration-value').innerHTML = `${numberHTML(showNm ? m.penetrationM * 1e9 : m.penetrationM, 5)} ${showNm ? 'nm' : 'm'}`;
+    $('kappa-value').innerHTML = `δ = ${numberHTML(m.penetrationM, 5)} m; κ = ${numberHTML(m.kappaPerM, 5)} m<sup>−1</sup>`;
+    $('ln-value').innerHTML = numberHTML(m.lnT, 6);
+    $('log-value').innerHTML = numberHTML(m.log10T, 6);
+    if (-m.log10T < 5) {
+      $('wait-value').innerHTML = `${numberHTML(Math.exp(-m.lnT), 5)} s`;
+    } else if (m.log10WaitYears < 5 && m.log10WaitYears > -5) {
+      $('wait-value').innerHTML = `${numberHTML(10 ** m.log10WaitYears, 5)} years`;
+    } else {
+      $('wait-value').innerHTML = `10<sup>${numberHTML(m.log10WaitYears, 5)}</sup> years`;
+    }
+    $('wait-log').innerHTML = `log<sub>10</sub>(wait / year) ≈ ${numberHTML(m.log10WaitYears, 6)}`;
+    $('calculation-status').textContent = 'Calculated with the exponential approximation.';
+  }
+  function drawChart() {
+    if (!model) return;
+    const m = model;
+    const full = $('plot-view').value === 'full';
+    const xMax = full ? m.widthM : Math.min(m.widthM, 5 * m.penetrationM);
+    const xUnit = $('width-unit').value;
+    const unitFactor = FACTORS.width[xUnit];
+    const visibleFraction = xMax / m.widthM;
+    const maximumLogDrop = -m.log10T * visibleFraction;
+    const bottom = scale === 'log' ? -maximumLogDrop : 0;
+    const W = Math.max(220, $('chart-wrap').clientWidth || 700);
+    const H = W < 360 ? 300 : 280;
+    const left = 87, right = 16, top = 15, base = H - 51;
+    const intervals = W < 450 ? 2 : 4;
+    lastChartWidth = W;
+    $('density-chart').setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const pw = W - left - right, ph = base - top;
+    const xp = fraction => left + fraction * pw;
+    const yp = value => base - value * ph;
+    const pieces = [
+      '<title id="chart-title">Decaying density inside the barrier</title>',
+      `<desc id="chart-description">${scale === 'linear' ? 'Entrance-relative density' : 'Base-10 logarithm of entrance-relative density'} from x = 0 to ${axisText(xMax / unitFactor)} ${xUnit}. The density at the entrance is one and decreases exponentially.</desc>`
+    ];
+    for (let i = 0; i <= intervals; i++) {
+      const value = scale === 'linear' ? i / intervals : bottom * (1 - i / intervals);
+      const y = scale === 'linear' ? yp(value) : base - (i / intervals) * ph;
+      pieces.push(`<line x1="${left}" y1="${y}" x2="${W-right}" y2="${y}" stroke="#dce4e9" stroke-width="1"/>`);
+      const yLabel = scale === 'linear' ? axisText(value) : scaledAxisText(bottom, 1 - i / intervals, W < 450 ? 2 : 3);
+      pieces.push(`<text x="${left-10}" y="${y+4}" text-anchor="end" fill="#526675" font-size="11">${yLabel}</text>`);
+      const x = xp(i / intervals);
+      pieces.push(`<line x1="${x}" y1="${base}" x2="${x}" y2="${base+4}" stroke="#526675"/>`);
+      pieces.push(`<text x="${x}" y="${base+20}" text-anchor="${i === intervals ? 'end' : 'middle'}" fill="#526675" font-size="11">${scaledAxisText(xMax/unitFactor, i/intervals, W < 450 ? 2 : 3)}</text>`);
+    }
+    // Include samples on the penetration-length scale even when d/delta is huge.
+    // A full-width linear plot then truthfully shows the unresolved drop at x≈0.
+    const fractions = new Set([0,1]);
+    for (let i = 1; i < 240; i++) fractions.add(i / 240);
+    for (let i = 1; i <= 120; i++) {
+      const fraction = (10 * m.penetrationM * i / 120) / xMax;
+      if (fraction > 0 && fraction < 1) fractions.add(fraction);
+    }
+    const points = [...fractions].sort((a,b) => a-b).map(fraction => {
+      const logDensity = m.log10T * (visibleFraction * fraction);
+      const value = scale === 'log' ? logDensity : Math.exp(logDensity * Math.LN10);
+      return [xp(fraction), scale === 'log' ? top + fraction * ph : yp(value)];
+    });
+    const path = points.map((point,i) => `${i ? 'L' : 'M'}${point[0].toFixed(3)},${point[1].toFixed(3)}`).join(' ');
+    if (scale === 'linear') pieces.push(`<path d="${path} L${xp(1)},${base} L${left},${base} Z" fill="#edf3f8"/>`);
+    pieces.push(`<line x1="${left}" y1="${top}" x2="${left}" y2="${base}" stroke="#526675"/>`);
+    pieces.push(`<line x1="${left}" y1="${base}" x2="${W-right}" y2="${base}" stroke="#526675"/>`);
+    pieces.push(`<path d="${path}" fill="none" stroke="#173f68" stroke-width="2.8" stroke-linejoin="round"/>`);
+    pieces.push(`<text x="${left+pw/2}" y="${H-8}" text-anchor="middle" fill="#172b3b" font-size="12">${W < 450 ? 'x' : 'Distance into barrier, x'} (${xUnit})</text>`);
+    pieces.push(`<text x="17" y="${top+ph/2}" transform="rotate(-90 17 ${top+ph/2})" text-anchor="middle" fill="#172b3b" font-size="12">${scale === 'linear' ? 'ρ(x) / ρ(0)' : 'log₁₀[ρ(x) / ρ(0)]'}</text>`);
+    $('density-chart').innerHTML = pieces.join('');
+    if (xMax < m.widthM * (1 - 1e-12)) {
+      $('chart-note').innerHTML = `Showing the first 5δ = ${numberHTML(xMax/unitFactor, 4)} ${xUnit} of a ${numberHTML(m.widthM/unitFactor, 4)} ${xUnit} barrier. Choose “Full barrier width” to show the entire width.`;
+    } else if (full && m.attenuation > 1000 && scale === 'linear') {
+      $('chart-note').textContent = 'The decay occurs too close to x = 0 to resolve across this full width. Select Log₁₀ or the penetration-length view to inspect it; a line on the axis does not mean exact zero.';
+    } else {
+      $('chart-note').textContent = 'Showing the entire barrier, from its entrance x = 0 to its exit x = d.';
+    }
+  }
+  function update() {
+    fields.forEach(field => $(field).setAttribute('aria-invalid', 'false'));
+    try {
+      model = calculateModel(readInputs());
+      $('input-error').hidden = true;
+      $('valid-results').hidden = false;
+      $('invalid-results').hidden = true;
+      $('chart-wrap').hidden = false;
+      renderResults();
+      drawChart();
+    } catch (error) {
+      model = null;
+      $('input-error').textContent = error.message;
+      $('input-error').hidden = false;
+      if (error.field && $(error.field)) $(error.field).setAttribute('aria-invalid', 'true');
+      $('valid-results').hidden = true;
+      $('invalid-results').hidden = false;
+      $('chart-wrap').hidden = true;
+      $('chart-note').textContent = '';
+      $('calculation-status').textContent = '';
+    }
+  }
+  function setPreset(name) {
+    const preset = getPreset(name);
+    fields.forEach(field => {
+      $(field).value = String(preset[field]);
+      $(field + '-unit').value = preset[field + 'Unit'];
+      $(field + '-unit').dataset.previousUnit = preset[field + 'Unit'];
+    });
+    $('plot-view').value = 'decay';
+    update();
+  }
+  fields.forEach(field => {
+    $(field).addEventListener('input', update);
+    const selector = $(field + '-unit');
+    selector.dataset.previousUnit = selector.value;
+    selector.addEventListener('change', () => {
+      const previous = selector.dataset.previousUnit;
+      const next = selector.value;
+      const value = Number($(field).value);
+      if ($(field).value.trim() !== '' && Number.isFinite(value)) {
+        const converted = value * FACTORS[field][previous] / FACTORS[field][next];
+        if (!Number.isFinite(converted) || (value !== 0 && converted === 0)) {
+          selector.value = previous;
+          selector.dataset.previousUnit = previous;
+          update();
+          $('input-error').textContent = 'That unit conversion exceeds the numeric range. The original value and unit were kept.';
+          $('input-error').hidden = false;
+          return;
+        }
+        $(field).value = String(converted);
+      }
+      selector.dataset.previousUnit = next;
+      update();
+    });
+  });
+  $('calculator-form').addEventListener('submit', event => { event.preventDefault(); update(); });
+  $('preset-copper').addEventListener('click', () => setPreset('copper'));
+  $('preset-person').addEventListener('click', () => setPreset('person'));
+  for (const value of ['linear','log']) $('scale-' + value).addEventListener('click', () => {
+    scale = value;
+    $('scale-linear').setAttribute('aria-pressed', String(scale === 'linear'));
+    $('scale-log').setAttribute('aria-pressed', String(scale === 'log'));
+    drawChart();
+  });
+  $('plot-view').addEventListener('change', drawChart);
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      const width = Math.max(220, $('chart-wrap').clientWidth || 700);
+      if (model && Math.abs(width - lastChartWidth) > 1) drawChart();
+    }).observe($('chart-wrap'));
+  } else if (typeof window !== 'undefined') {
+    window.addEventListener('resize', drawChart);
+  }
+  setPreset('copper');
+})();
+</script>
+</body>
+</html>

@@ -28,4 +28,14 @@ fs.writeFileSync(path.join(root, 'dist', '404.html'), `<!doctype html>
 <style>body{font:16px/1.5 Arial,sans-serif;max-width:32rem;margin:15vh auto;padding:0 1rem;color:#16202b}a{color:#2a6fc5}</style></head>
 <body><h1>Page not found</h1><p>That page does not exist. The discharge lamp simulation lives at <a href="/lamp-sim/">/lamp-sim/</a>.</p></body></html>
 `);
+// standalone pages: static/<name>/ is copied to dist/<name>/ (served at <domain>/<name>/)
+const staticDir = path.join(root, 'static');
+if (fs.existsSync(staticDir)) {
+  for (const name of fs.readdirSync(staticDir)) {
+    const dest = path.join(root, 'dist', name);
+    fs.rmSync(dest, { recursive: true, force: true });
+    fs.cpSync(path.join(staticDir, name), dest, { recursive: true });
+    console.log('Built', dest);
+  }
+}
 console.log('Built', out);

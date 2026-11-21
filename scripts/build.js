@@ -39,3 +39,4 @@ if (fs.existsSync(staticDir)) {
   }
 }
 console.log('Built', out);
+require("./home");

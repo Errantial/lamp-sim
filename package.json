@@ -11,5 +11,8 @@
   },
   "devDependencies": {
     "playwright": "^1.63.0"
+  },
+  "dependencies": {
+    "marked": "^15.0.12"
   }
 }
